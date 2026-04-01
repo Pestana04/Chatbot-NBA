@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chatbot NBA</title>
-    <!-- Estilo bem de estudante, tudo num arquivo só -->
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -128,7 +127,6 @@
         </div>
     </div>
 
-    <!-- Script js no mesmo arquivo -->
     <script>
         function sendMessage() {
             var inputField = document.getElementById("user-input");
@@ -158,10 +156,21 @@
             })
             .then(response => response.json())
             .then(data => {
-                // Adiciona resposta do bot
-                chatBox.innerHTML += '<div class="message bot-msg">' + data.response + '</div>';
-                chatBox.scrollTop = chatBox.scrollHeight;
-            })
+             // cria mensagem temporária
+             var digitandoMsg = document.createElement("div");
+             digitandoMsg.className = "message bot-msg";
+             digitandoMsg.innerText = "Bot da NBA está escrevendo...";
+
+             chatBox.appendChild(digitandoMsg);
+             chatBox.scrollTop = chatBox.scrollHeight;
+
+             // delay fake (simula digitação)
+             setTimeout(() => {
+             digitandoMsg.innerText = data.response;
+             chatBox.scrollTop = chatBox.scrollHeight;
+             }, 1000); // 1 segundo
+
+             })
             .catch(error => {
                 console.error("Erro:", error);
                 chatBox.innerHTML += '<div class="message bot-msg">Ops, deu erro no servidor. Ligou o Flask lá no terminal?</div>';
