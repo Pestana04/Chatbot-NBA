@@ -39,13 +39,30 @@ respostas_nba = {
     "default": "Putz, não entendi bem. Tenta perguntar o nome de algum jogador famoso (ex: LeBron, Jordan, Curry) ou sobre times (Lakers, Celtics) ou regras."
 }
 
+# Lista de palavrões
+PALAVROES_BLOQUEADOS = {
+    "porra", "caralho", "merda", "bosta", "cacete",
+    "fdp", "puta", "desgraça", "desgraca",
+    "arrombado", "otario", "babaca", "idiota"
+}
+
+
 def processar_texto(texto):
     # Processamento simples com NLTK
     tokens = word_tokenize(texto.lower(), language='portuguese')
-    # Remove pontuacao e stopwords de forma bem basica
+    # Remove pontuacao e stopwords
     stop_words = set(stopwords.words('portuguese'))
     palavras_limpas = [p for p in tokens if p not in stop_words and p not in string.punctuation]
     return palavras_limpas
+
+def contem_palavrao(texto):
+    palavras = word_tokenize(texto.lower(), language='portuguese')
+
+    for palavra in palavras:
+        palavra = palavra.strip(string.punctuation)
+        if palavra in PALAVROES_BLOQUEADOS:
+            return True
+    return False
 
 def obter_respostas(mensagem):
     palavras = processar_texto(mensagem)
@@ -74,6 +91,11 @@ def chat():
     
     if not user_message:
         return jsonify({"response": "Manda uma mensagem válida!"})
+
+    if contem_palavrao(user_message):
+        return jsonify({
+            "response": "Opa campeão, vamos evitar o xingamento, todo mundo aqui é amigo!"
+        })
         
     bot_response = obter_respostas(user_message)
     return jsonify({"response": bot_response})
