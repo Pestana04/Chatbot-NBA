@@ -6,16 +6,16 @@ import string
 
 app = Flask(__name__)
 
-# Dicionário para armazenar a memória do usuário (time escolhido + progresso da conversa)
+
 user_memory = {}
 
-# Progresso de conversa - qual pergunta o bot deve fazer próximo
+
 PROGRESSO_CONVERSA = {
     "lakers": ["lakers_historia", "lakers_jogadores", "lakers_titulos", "lakers_estadio", "lakers_conferenciaatualmente", "lakers_tecnico", "lakers_rivalidade", "lakers_presente", "lakers_futuro"],
     "celtics": ["celtics_historia", "celtics_jogadores", "celtics_titulos", "celtics_estadio", "celtics_conferenciaatualmente", "celtics_tecnico", "celtics_rivalidade", "celtics_presente", "celtics_futuro"]
 }
 
-# O aluno normalmente baixa isso pelo script "pra ter ctz", vou deixar uma gambiarra pra baixar se não tiver
+
 try:
     nltk.data.find('tokenizers/punkt_tab')
 except Exception:
@@ -28,7 +28,6 @@ except Exception:
     nltk.download('stopwords', quiet=True)
 
 
-# Saudações
 SAUDACOES = {
     "oi": "E aí! Tudo bem com você? Quer conhecer sobre o Lakers ou Celtics?",
     "opa" : "Opa! Que bom te ver por aqui. Qual time você quer explorar: Lakers ou Celtics?",
@@ -41,10 +40,9 @@ SAUDACOES = {
     "valeu": "Tranquilo! Bora continuar a conversa?"
 }
 
-# Banco de conversas dinâmico - 20 pares Q&A
-# Estrutura: chave pode ser uma palavra-chave genérica ou específica de time
+
 BANCO_CONVERSAS = {
-    # Perguntas introdutórias / Escolha de time
+
     "quer saber": "Maneiro! Qual time interessa você? Posso te contar tudo sobre o Lakers ou Celtics!",
     "qual time": "Ótimo! Qual é o seu favorito? Lakers ou Celtics?",
     "escolha": "Beleza! Você quer aprender sobre Lakers ou Celtics?",
@@ -87,7 +85,7 @@ BANCO_CONVERSAS = {
         "sugestao": "Quer explorar o Boston Celtics também?"
     },
     
-    # Celtics - Perguntas específicas (10 respostas)
+
     "celtics_historia": {
         "resposta": "O Boston Celtics é LENDÁRIO demais! Fundado em 1957, conquistou 18 títulos NBA - O MAIS CAMPEÃO de todos! A era de ouro foi nos 60s com Bill Russell vencendo 11 títulos em 13 anos. Que domínio!",
         "sugestao": "Quer conhecer os maiores nomes que jogaram lá?"
@@ -126,7 +124,7 @@ BANCO_CONVERSAS = {
     },
 }
 
-# Perguntas-chave mapeadas (para facilitar a busca)
+
 PALAVRAS_CHAVE_LAKERS = {
     "lakers", "angeles", "magic", "kobe", "shaq", "lebron", "staples", "crypto", 
     "showtime", "black mamba", "diesel", "oeste", "papai"
@@ -137,7 +135,7 @@ PALAVRAS_CHAVE_CELTICS = {
     "td garden", "leste", "truth", "pierce", "havlicek"
 }
 
-# Lista de palavrões
+
 PALAVROES_BLOQUEADOS = {
     "porra", "caralho", "merda", "bosta", "cacete",
     "fdp", "puta", "desgraça", "desgraca",
@@ -146,9 +144,9 @@ PALAVROES_BLOQUEADOS = {
 
 
 def processar_texto(texto):
-    # Processamento simples com NLTK
+
     tokens = word_tokenize(texto.lower(), language='portuguese')
-    # Remove pontuacao e stopwords
+
     stop_words = set(stopwords.words('portuguese'))
     palavras_limpas = [p for p in tokens if p not in stop_words and p not in string.punctuation]
     return palavras_limpas
@@ -213,7 +211,7 @@ def gerar_chave_conversa(mensagem, time_memorizado):
     mensagem_lower = mensagem.lower()
     palavras = processar_texto(mensagem)
     
-    # Palavras-chave para tipos de pergunta
+
     tipos_pergunta = {
         "historia": ["historia", "origem", "fundação", "foi", "criação", "começou"],
         "jogadores": ["jogadores", "astros", "lendas", "nomes", "quem", "ícones", "estrelas"],
@@ -226,20 +224,20 @@ def gerar_chave_conversa(mensagem, time_memorizado):
         "futuro": ["futuro", "vai", "próximo", "vai ser"],
     }
     
-    # Identifica o tipo de pergunta
+
     tipo_identificado = "historia"  # padrão
     for tipo, palavras_tipo in tipos_pergunta.items():
         if any(p in palavras for p in palavras_tipo):
             tipo_identificado = tipo
             break
     
-    # Se tem time memorizado, usa ele
+
     if time_memorizado:
         chave = f"{time_memorizado}_{tipo_identificado}"
         if chave in BANCO_CONVERSAS:
             return chave
     
-    # Procura por palavra-chave genérica
+
     for palavra in palavras:
         if palavra in BANCO_CONVERSAS:
             return palavra
@@ -249,17 +247,17 @@ def gerar_chave_conversa(mensagem, time_memorizado):
 def obter_respostas(mensagem, session_id):
     """Busca resposta no banco de conversas com memória de time e guia de conversa"""
     
-    # Verifica saudações primeiro
+
     mensagem_lower = mensagem.lower()
     for saudacao, resposta in SAUDACOES.items():
         if saudacao in mensagem_lower:
             return resposta
     
-    # Pega o time memorizado do usuário
+
     time_memorizado = user_memory.get(session_id)
     indice_pergunta = user_memory.get(f"{session_id}_indice", -1)
     
-    # Detecta time escolhido
+
     time_detectado = detectar_time(mensagem)
     if time_detectado:
         user_memory[session_id] = time_detectado
@@ -267,9 +265,9 @@ def obter_respostas(mensagem, session_id):
         indice_pergunta = -1  # Reseta o índice quando escolhe um novo time
         user_memory[f"{session_id}_indice"] = -1
     
-    # Verifica se é uma resposta afirmativa (sim/quero) e tem time memorizado
+
     if eh_resposta_afirmativa(mensagem) and time_memorizado:
-        # Avança para próxima pergunta da sequência
+
         proxima_chave = obter_proxima_pergunta(time_memorizado, indice_pergunta)
         
         if proxima_chave:
@@ -278,15 +276,15 @@ def obter_respostas(mensagem, session_id):
             resposta = processar_resposta_com_sugestao(proxima_chave)
             return resposta
         else:
-            # Se acabou a sequência de perguntas do time
+
             outro_time = "Celtics" if time_memorizado == "lakers" else "Lakers"
             return f"Massa! Terminamos a jornada pelo {time_memorizado.upper()}! 🏀\n\nAgora quer explorar o {outro_time}?"
     
-    # Gera a chave para buscar resposta
+
     chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
     
     if chave_conversa and chave_conversa in BANCO_CONVERSAS:
-        # Atualiza o índice se encontrou uma resposta do banco
+
         if time_memorizado and chave_conversa.startswith(time_memorizado):
             sequencia = PROGRESSO_CONVERSA.get(time_memorizado, [])
             if chave_conversa in sequencia:
@@ -295,7 +293,7 @@ def obter_respostas(mensagem, session_id):
         
         resposta_obj = BANCO_CONVERSAS[chave_conversa]
         
-        # Verifica se é um dict (com resposta + sugestão) ou string
+
         if isinstance(resposta_obj, dict):
             resposta = resposta_obj.get("resposta", "")
             sugestao = resposta_obj.get("sugestao", "")
@@ -305,7 +303,7 @@ def obter_respostas(mensagem, session_id):
         else:
             return resposta_obj
     
-    # Se não encontrou nada específico, tenta ser genérico
+
     if time_memorizado:
         return f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: história, jogadores, títulos, estádio ou rivalidades!"
     else:

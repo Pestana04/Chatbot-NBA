@@ -6,8 +6,8 @@
     <title>Chatbot NBA</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background-color: #e9ecef;
             margin: 0;
             padding: 0;
             display: flex;
@@ -28,21 +28,21 @@
         }
 
         .header {
-            background-color: #1d428a; /* Azul escuro tipo NBA */
+            background-color: #1d428a;
             color: white;
             text-align: center;
             padding: 20px;
             font-size: 24px;
             font-weight: bold;
         }
-        
-        /* Uma gambiarra de cor pra parecer logo da NBA */
+
+
         .header span {
-            color: #c9082a; /* Vermelho NBA */
+            color: #c9082a;
         }
 
         .chat-box {
-            height: 400px;
+            height: 420px;
             padding: 15px;
             overflow-y: auto;
             border-bottom: 1px solid #ddd;
@@ -54,10 +54,10 @@
 
         .message {
             max-width: 80%;
-            padding: 10px 15px;
+            padding: 12px 18px;
             border-radius: 15px;
             line-height: 1.4;
-            font-size: 15px;
+            font-size: 16px;
             word-wrap: break-word;
         }
 
@@ -133,20 +133,20 @@
             var message = inputField.value;
             
             if(message.trim() === "") {
-                return; // nao envia msg vazia
+                return;
             }
 
-            // Adiciona a msg do usuario na tela
+
             var chatBox = document.getElementById("chat-box");
             chatBox.innerHTML += '<div class="message user-msg">' + message + '</div>';
             
-            // limpa o input
+
             inputField.value = "";
 
-            // scroll pra baixo
+
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Faz requisição pro backend do flask
+
             var formData = new FormData();
             formData.append("msg", message);
 
@@ -156,7 +156,7 @@
             })
             .then(response => response.json())
             .then(data => {
-             // cria mensagem temporária
+
              var digitandoMsg = document.createElement("div");
              digitandoMsg.className = "message bot-msg";
              digitandoMsg.innerText = "Bot da NBA está escrevendo...";
@@ -164,7 +164,6 @@
              chatBox.appendChild(digitandoMsg);
              chatBox.scrollTop = chatBox.scrollHeight;
 
-             // delay fake (simula digitação)
              setTimeout(() => {
              digitandoMsg.innerText = data.response;
              chatBox.scrollTop = chatBox.scrollHeight;
