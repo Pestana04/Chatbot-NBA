@@ -81,7 +81,7 @@ BANCO_CONVERSAS = {
         "sugestao": "Quer conhecer o técnico do Celtics?"
     },
     "celtics_tecnico": {
-        "resposta": "O técnico atual do Celtics trabalha para manter o padrão de excelência da franquia. A organização celtics é conhecida por sempre ter técnicos de elite gerenciando times incríveis!",
+        "resposta": "O técnico atual do Celtics é o Joe Mazzulla, ele trabalha para manter o padrão de excelência da franquia. A organização celtics é conhecida por sempre ter técnicos de elite gerenciando times incríveis!",
         "sugestao": "Quer saber sobre a rivalidade do Celtics?"
     },
     "celtics_rivalidade": {
