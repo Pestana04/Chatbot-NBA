@@ -50,6 +50,23 @@ def eh_resposta_afirmativa(texto):
     }
     return texto_lower in respostas_afirmativas or any(pal in texto_lower for pal in respostas_afirmativas)
 
+def eh_resposta_negativa(texto):
+    """Detecta se o usuário respondeu 'não', para pular ou parar"""
+    texto_lower = texto.lower().strip()
+    respostas_negativas = {"não", "nao", "n", "nunca", "nope"}
+    
+    if texto_lower in respostas_negativas:
+        return True
+    if "não quero" in texto_lower or "nao quero" in texto_lower:
+        return True
+    
+    # Se começar com "nao", "não", também pega (ex: "nao, valeu")
+    for n in respostas_negativas:
+        if texto_lower.startswith(n + " ") or texto_lower.startswith(n + ","):
+            return True
+            
+    return False
+
 def obter_proxima_pergunta(time, indice_atual):
     """Obtém a próxima pergunta da sequência"""
     if time not in PROGRESSO_CONVERSA:
@@ -145,6 +162,11 @@ def obter_respostas(mensagem, session_id):
         indice_pergunta = -1  # Reseta o índice quando escolhe um novo time
         user_memory[f"{session_id}_indice"] = -1
     
+    if eh_resposta_negativa(mensagem):
+        if time_memorizado:
+             return f"Tranquilo, não falo mais disso! Quer mudar de assunto ou perguntar outra coisa sobre o {time_memorizado.capitalize()}?"
+        else:
+             return "Beleza, sem problemas! Se quiser saber sobre algum time da NBA mais tarde, é só mandar mensagem."
 
     if eh_resposta_afirmativa(mensagem) and time_memorizado:
 
