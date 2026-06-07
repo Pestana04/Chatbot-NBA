@@ -155,21 +155,34 @@
                 body: formData
             })
             .then(response => response.json())
-            .then(data => {
+                .then(data => {
 
-             var digitandoMsg = document.createElement("div");
-             digitandoMsg.className = "message bot-msg";
-             digitandoMsg.innerText = "Bot da NBA está escrevendo...";
+                    var digitandoMsg = document.createElement("div");
+                    digitandoMsg.className = "message bot-msg";
 
-             chatBox.appendChild(digitandoMsg);
-             chatBox.scrollTop = chatBox.scrollHeight;
+                    digitandoMsg.innerText =
+                        "🌍 Pesquisando em " + data.idioma + "...";
 
-             setTimeout(() => {
-             digitandoMsg.innerText = data.response;
-             chatBox.scrollTop = chatBox.scrollHeight;
-             }, 1000); // 1 segundo
+                    chatBox.appendChild(digitandoMsg);
+                    chatBox.scrollTop = chatBox.scrollHeight;
 
-             })
+                    setTimeout(() => {
+
+                        digitandoMsg.innerText =
+                            "🏀 Bot da NBA está escrevendo...";
+
+                        chatBox.scrollTop = chatBox.scrollHeight;
+
+                        setTimeout(() => {
+
+                            digitandoMsg.innerText = data.response;
+                            chatBox.scrollTop = chatBox.scrollHeight;
+
+                        }, 800);
+
+                    }, 800);
+
+                })
             .catch(error => {
                 console.error("Erro:", error);
                 chatBox.innerHTML += '<div class="message bot-msg">Ops, deu erro no servidor. Ligou o Flask lá no terminal?</div>';

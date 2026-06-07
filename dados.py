@@ -13,7 +13,10 @@ SAUDACOES = {
     "tudo bem": "Tudo certo por aqui! E aí, manda a sua pergunta de NBA!",
     "obrigado": "De nada, campeão! Tem mais alguma pergunta?",
     "valeu": "Tranquilo! Bora continuar a conversa?",
-    "olá": "Faaala! Que legal você estar aqui. Qual time você quer explorar: Lakers ou Celtics?"
+    "olá": "Faaala! Que legal você estar aqui. Qual time você quer explorar: Lakers ou Celtics?",
+    "tchau": "Valeu pela conversa! Volte quando quiser falar sobre NBA! 🏀",
+    "adeus": "Até a próxima! Foi um prazer falar de NBA com você! 🏀",
+    "bye": "Até mais! Continue acompanhando a NBA! 🏀"
 }
 
 BANCO_CONVERSAS = {

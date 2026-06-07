@@ -13,7 +13,11 @@ from dados import (
     PALAVROES_BLOQUEADOS
 )
 
-from tradutor_local import traduzir_para_portugues, instalar_idiomas
+from tradutor_local import (
+    traduzir_para_portugues,
+    identificar_idioma,
+    instalar_idiomas
+)
 
 app = Flask(__name__)
 
@@ -223,6 +227,11 @@ def index():
 def chat():
     print("CHAT CHAMADO")
     user_message = request.form.get("msg")
+    idioma_detectado = identificar_idioma(user_message)
+
+    print("=" * 50)
+    print("IDIOMA:", idioma_detectado)
+    print("ORIGINAL:", user_message)
     session_id = request.form.get("session_id", "default")
 
     if not user_message:
@@ -242,7 +251,10 @@ def chat():
         })
 
     bot_response = obter_respostas(user_message, session_id)
-    return jsonify({"response": bot_response})
+    return jsonify({
+        "response": bot_response,
+        "idioma": idioma_detectado
+    })
 
 
 if __name__ == "__main__":
