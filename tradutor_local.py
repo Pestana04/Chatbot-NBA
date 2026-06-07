@@ -1,8 +1,10 @@
 import argostranslate.package
 import argostranslate.translate
 
+IDIOMAS_SUPORTADOS = ["en", "es", "fr", "it", "de"]
 
-def instalar_pacote_traducao(origem="en", destino="pt"):
+
+def instalar_pacote(origem, destino="pt"):
     pacotes_disponiveis = argostranslate.package.get_available_packages()
 
     pacote = next(
@@ -11,12 +13,33 @@ def instalar_pacote_traducao(origem="en", destino="pt"):
     )
 
     if pacote:
-        caminho_pacote = pacote.download()
-        argostranslate.package.install_from_path(caminho_pacote)
+        caminho = pacote.download()
+        argostranslate.package.install_from_path(caminho)
+
+
+def instalar_idiomas():
+    for idioma in IDIOMAS_SUPORTADOS:
+        instalar_pacote(idioma, "pt")
 
 
 def traduzir_para_portugues(texto):
     try:
-        return argostranslate.translate.translate(texto, "en", "pt")
-    except Exception:
+        idiomas_instalados = argostranslate.translate.get_installed_languages()
+
+        idioma_pt = next((i for i in idiomas_instalados if i.code == "pt"), None)
+
+        for idioma_origem in idiomas_instalados:
+            if idioma_origem.code == "pt":
+                continue
+
+            traducao = idioma_origem.get_translation(idioma_pt)
+            texto_traduzido = traducao.translate(texto)
+
+            if texto_traduzido.lower().strip() != texto.lower().strip():
+                return texto_traduzido
+
+        return texto
+
+    except Exception as erro:
+        print("Erro na tradução:", erro)
         return texto

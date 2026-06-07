@@ -12,7 +12,8 @@ SAUDACOES = {
     "boa noite": "Boa noite! Já escolheu um time para aprender mais?",
     "tudo bem": "Tudo certo por aqui! E aí, manda a sua pergunta de NBA!",
     "obrigado": "De nada, campeão! Tem mais alguma pergunta?",
-    "valeu": "Tranquilo! Bora continuar a conversa?"
+    "valeu": "Tranquilo! Bora continuar a conversa?",
+    "olá": "Faaala! Que legal você estar aqui. Qual time você quer explorar: Lakers ou Celtics?"
 }
 
 BANCO_CONVERSAS = {
