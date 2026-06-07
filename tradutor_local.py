@@ -36,29 +36,60 @@ def instalar_idiomas():
     print("Modelos carregados.")
 
 
-def identificar_idioma(texto):
+def detectar_codigo_idioma(texto):
+    texto_lower = texto.lower().strip()
+
+    # Correção para palavras curtas que o langdetect erra frequentemente
+    palavras_curtas = {
+        "hello": "en",
+        "hi": "en",
+        "hey": "en",
+        "bye": "en",
+
+        "hola": "es",
+        "adios": "es",
+        "adiós": "es",
+
+        "ciao": "it",
+        "buongiorno": "it",
+
+        "bonjour": "fr",
+        "salut": "fr",
+
+        "hallo": "de",
+        "guten tag": "de"
+    }
+
+    if texto_lower in palavras_curtas:
+        return palavras_curtas[texto_lower]
+
     try:
-        codigo = detect(texto)
+        return detect(texto)
 
-        idiomas = {
-            "pt": "Português",
-            "en": "Inglês",
-            "es": "Espanhol",
-            "it": "Italiano",
-            "fr": "Francês",
-            "de": "Alemão"
-        }
+    except Exception:
+        return "pt"
 
-        return idiomas.get(codigo, codigo)
 
-    except:
-        return "Desconhecido"
+def identificar_idioma(texto):
+    codigo = detectar_codigo_idioma(texto)
+
+    idiomas = {
+        "pt": "Português",
+        "en": "Inglês",
+        "es": "Espanhol",
+        "it": "Italiano",
+        "fr": "Francês",
+        "de": "Alemão"
+    }
+
+    return idiomas.get(codigo, codigo)
 
 
 def traduzir_para_portugues(texto):
     try:
+        codigo = detectar_codigo_idioma(texto)
 
-        codigo = detect(texto)
+        print(f"Idioma detectado: {codigo}")
 
         if codigo == "pt":
             return texto
@@ -77,7 +108,12 @@ def traduzir_para_portugues(texto):
 
         if idioma_origem and idioma_pt:
             traducao = idioma_origem.get_translation(idioma_pt)
-            return traducao.translate(texto)
+
+            texto_traduzido = traducao.translate(texto)
+
+            print(f"Traduzido: {texto_traduzido}")
+
+            return texto_traduzido
 
         return texto
 
