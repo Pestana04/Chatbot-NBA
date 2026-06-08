@@ -3,15 +3,8 @@ import nltk
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import string
-
-from dados import (
-    PROGRESSO_CONVERSA,
-    SAUDACOES,
-    BANCO_CONVERSAS,
-    PALAVRAS_CHAVE_LAKERS,
-    PALAVRAS_CHAVE_CELTICS,
-    PALAVROES_BLOQUEADOS
-)
+import json
+import os
 
 from tradutor_local import (
     traduzir_para_portugues,
@@ -23,6 +16,16 @@ app = Flask(__name__)
 
 user_memory = {}
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(BASE_DIR, "dados.json"), "r", encoding="utf-8") as f:
+    _dados = json.load(f)
+
+PROGRESSO_CONVERSA    = _dados["PROGRESSO_CONVERSA"]
+SAUDACOES             = _dados["SAUDACOES"]
+BANCO_CONVERSAS       = _dados["BANCO_CONVERSAS"]
+PALAVRAS_CHAVE_LAKERS  = set(_dados["PALAVRAS_CHAVE_LAKERS"])
+PALAVRAS_CHAVE_CELTICS = set(_dados["PALAVRAS_CHAVE_CELTICS"])
+PALAVROES_BLOQUEADOS   = set(_dados["PALAVROES_BLOQUEADOS"])
 
 try:
     nltk.data.find('tokenizers/punkt_tab')
@@ -45,7 +48,6 @@ def processar_texto(texto):
 
 def contem_palavrao(texto):
     palavras = word_tokenize(texto.lower(), language='portuguese')
-
     for palavra in palavras:
         palavra = palavra.strip(string.punctuation)
         if palavra in PALAVROES_BLOQUEADOS:
@@ -156,7 +158,7 @@ def obter_respostas(mensagem, session_id):
 
     for saudacao, resposta in SAUDACOES.items():
         if saudacao in mensagem_lower:
-            return resposta
+            return resposta, "base"
 
     time_memorizado = user_memory.get(session_id)
     indice_pergunta = user_memory.get(f"{session_id}_indice", -1)
@@ -171,9 +173,9 @@ def obter_respostas(mensagem, session_id):
 
     if eh_resposta_negativa(mensagem):
         if time_memorizado:
-            return f"Tranquilo, não falo mais disso! Quer mudar de assunto ou perguntar outra coisa sobre o {time_memorizado.capitalize()}?"
+            return f"Tranquilo, não falo mais disso! Quer mudar de assunto ou perguntar outra coisa sobre o {time_memorizado.capitalize()}?", "base"
         else:
-            return "Beleza, sem problemas! Se quiser saber sobre algum time da NBA mais tarde, é só mandar mensagem."
+            return "Beleza, sem problemas! Se quiser saber sobre algum time da NBA mais tarde, é só mandar mensagem.", "base"
 
     if eh_resposta_afirmativa(mensagem) and time_memorizado:
         proxima_chave = obter_proxima_pergunta(time_memorizado, indice_pergunta)
@@ -181,7 +183,7 @@ def obter_respostas(mensagem, session_id):
         if proxima_chave:
             indice_pergunta += 1
             user_memory[f"{session_id}_indice"] = indice_pergunta
-            return processar_resposta_com_sugestao(proxima_chave)
+            return processar_resposta_com_sugestao(proxima_chave), "base"
 
         outro_time = "celtics" if time_memorizado == "lakers" else "lakers"
         user_memory[session_id] = outro_time
@@ -190,7 +192,7 @@ def obter_respostas(mensagem, session_id):
         primeira_chave = PROGRESSO_CONVERSA[outro_time][0]
         resposta_outro_time = processar_resposta_com_sugestao(primeira_chave)
 
-        return f"Massa! Terminamos a jornada pelo {time_memorizado.upper()}! 🏀\n\nAgora vamos de {outro_time.capitalize()}!\n\n{resposta_outro_time}"
+        return f"Massa! Terminamos a jornada pelo {time_memorizado.upper()}! 🏀\n\nAgora vamos de {outro_time.capitalize()}!\n\n{resposta_outro_time}", "base"
 
     chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
 
@@ -208,14 +210,14 @@ def obter_respostas(mensagem, session_id):
             sugestao = resposta_obj.get("sugestao", "")
             if sugestao:
                 resposta += f"\n\n👉 {sugestao}"
-            return resposta
+            return resposta, "base"
 
-        return resposta_obj
+        return resposta_obj, "base"
 
     if time_memorizado:
-        return f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: história, jogadores, títulos, estádio ou rivalidades!"
+        return f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: história, jogadores, títulos, estádio ou rivalidades!", "padrao"
 
-    return "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
+    return "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? Depois pergunta sobre história, jogadores, títulos, estádio e mais!", "padrao"
 
 
 @app.route("/", methods=["GET"])
@@ -237,9 +239,6 @@ def chat():
     if not user_message:
         return jsonify({"response": "Manda uma mensagem válida!"})
 
-    print("=" * 50)
-    print("ORIGINAL:", user_message)
-
     user_message = traduzir_para_portugues(user_message)
 
     print("TRADUZIDA:", user_message)
@@ -247,13 +246,17 @@ def chat():
 
     if contem_palavrao(user_message):
         return jsonify({
-            "response": "Opa campeão, vamos evitar o xingamento, todo mundo aqui é amigo!"
+            "response": "Opa campeão, vamos evitar o xingamento, todo mundo aqui é amigo!",
+            "idioma": idioma_detectado,
+            "fonte": "base"
         })
 
-    bot_response = obter_respostas(user_message, session_id)
+    bot_response, fonte = obter_respostas(user_message, session_id)
+
     return jsonify({
         "response": bot_response,
-        "idioma": idioma_detectado
+        "idioma": idioma_detectado,
+        "fonte": fonte
     })
 
 

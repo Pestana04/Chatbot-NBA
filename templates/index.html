@@ -112,6 +112,16 @@
         .input-area button:hover {
             background-color: #c9082a;
         }
+
+        .fonte-badge {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.65;
+            align-self: flex-start;
+        }
+
+        .fonte-base  { color: #1d428a; }
+        .fonte-padrao { color: #888; }
     </style>
 </head>
 <body>
@@ -176,6 +186,12 @@
                         setTimeout(() => {
 
                             digitandoMsg.innerText = data.response;
+
+                            var badge = document.createElement("div");
+                            badge.className = "fonte-badge " + (data.fonte === "base" ? "fonte-base" : "fonte-padrao");
+                            badge.innerText = data.fonte === "base" ? "🗂️ Base de dados" : "🤖 Resposta padrão";
+                            chatBox.appendChild(badge);
+
                             chatBox.scrollTop = chatBox.scrollHeight;
 
                         }, 1200);
