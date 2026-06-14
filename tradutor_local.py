@@ -1,13 +1,23 @@
 import argostranslate.package
 import argostranslate.translate
-
 from langdetect import detect
 
 
-IDIOMAS_SUPORTADOS = ["en", "es", "it", "fr", "de"]
+PARES_TRADUCAO = [
+    ("en", "pt"),
+    ("pt", "en"),
+    ("es", "pt"),
+    ("pt", "es"),
+    ("it", "pt"),
+    ("pt", "it"),
+    ("fr", "pt"),
+    ("pt", "fr"),
+    ("de", "pt"),
+    ("pt", "de"),
+]
 
 
-def instalar_pacote(origem, destino="pt"):
+def instalar_pacote(origem, destino):
     try:
         pacotes_disponiveis = argostranslate.package.get_available_packages()
 
@@ -23,23 +33,22 @@ def instalar_pacote(origem, destino="pt"):
             caminho = pacote.download()
             argostranslate.package.install_from_path(caminho)
 
-    except Exception as e:
-        print(f"Erro ao instalar {origem}->{destino}: {e}")
+    except Exception as erro:
+        print(f"Erro ao instalar {origem}->{destino}: {erro}")
 
 
 def instalar_idiomas():
-    print("Instalando modelos de tradução...")
+    print("Verificando modelos de tradução...")
 
-    for idioma in IDIOMAS_SUPORTADOS:
-        instalar_pacote(idioma)
+    for origem, destino in PARES_TRADUCAO:
+        instalar_pacote(origem, destino)
 
-    print("Modelos carregados.")
+    print("Modelos de tradução verificados.")
 
 
 def detectar_codigo_idioma(texto):
     texto_lower = texto.lower().strip()
 
-    # Correção para palavras curtas que o langdetect erra frequentemente
     palavras_curtas = {
         "hello": "en",
         "hi": "en",
@@ -65,7 +74,6 @@ def detectar_codigo_idioma(texto):
 
     try:
         return detect(texto)
-
     except Exception:
         return "pt"
 
@@ -85,38 +93,38 @@ def identificar_idioma(texto):
     return idiomas.get(codigo, codigo)
 
 
-def traduzir_para_portugues(texto):
+def traduzir(texto, origem, destino):
     try:
-        codigo = detectar_codigo_idioma(texto)
-
-        print(f"Idioma detectado: {codigo}")
-
-        if codigo == "pt":
+        if origem == destino:
             return texto
 
         idiomas_instalados = argostranslate.translate.get_installed_languages()
 
         idioma_origem = next(
-            (i for i in idiomas_instalados if i.code == codigo),
+            (i for i in idiomas_instalados if i.code == origem),
             None
         )
 
-        idioma_pt = next(
-            (i for i in idiomas_instalados if i.code == "pt"),
+        idioma_destino = next(
+            (i for i in idiomas_instalados if i.code == destino),
             None
         )
 
-        if idioma_origem and idioma_pt:
-            traducao = idioma_origem.get_translation(idioma_pt)
-
-            texto_traduzido = traducao.translate(texto)
-
-            print(f"Traduzido: {texto_traduzido}")
-
-            return texto_traduzido
+        if idioma_origem and idioma_destino:
+            traducao = idioma_origem.get_translation(idioma_destino)
+            return traducao.translate(texto)
 
         return texto
 
     except Exception as erro:
-        print("Erro tradução:", erro)
+        print("Erro na tradução:", erro)
         return texto
+
+
+def traduzir_para_portugues(texto):
+    codigo = detectar_codigo_idioma(texto)
+    return traduzir(texto, codigo, "pt")
+
+
+def traduzir_do_portugues(texto, codigo_destino):
+    return traduzir(texto, "pt", codigo_destino)
