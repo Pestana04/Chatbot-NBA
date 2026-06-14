@@ -122,6 +122,7 @@
 
         .fonte-base  { color: #1d428a; }
         .fonte-padrao { color: #888; }
+        .fonte-llm { color: #c9082a; }
     </style>
 </head>
 <body>
@@ -187,9 +188,17 @@
 
                             digitandoMsg.innerText = data.response;
 
+                            var fontes = {
+                                "base":   { classe: "fonte-base",   texto: "🗂️ Base de dados" },
+                                "llm":    { classe: "fonte-llm",    texto: "🧠 IA (LLM Hugging Face)" },
+                                "padrao": { classe: "fonte-padrao", texto: "🤖 Resposta padrão" }
+                            };
+
+                            var info = fontes[data.fonte] || fontes["padrao"];
+
                             var badge = document.createElement("div");
-                            badge.className = "fonte-badge " + (data.fonte === "base" ? "fonte-base" : "fonte-padrao");
-                            badge.innerText = data.fonte === "base" ? "🗂️ Base de dados" : "🤖 Resposta padrão";
+                            badge.className = "fonte-badge " + info.classe;
+                            badge.innerText = info.texto;
                             chatBox.appendChild(badge);
 
                             chatBox.scrollTop = chatBox.scrollHeight;
