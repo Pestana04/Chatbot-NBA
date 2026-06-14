@@ -93,6 +93,72 @@ def identificar_idioma(texto):
     return idiomas.get(codigo, codigo)
 
 
+def corrigir_girias_antes_de_traduzir(texto):
+    substituicoes = {
+        "Faaala!": "Olá!",
+        "Faaala": "Olá",
+        "Massa!": "Legal!",
+        "Massa": "Legal",
+        "Beleza": "Tudo bem",
+        "Opa campeão": "Olá",
+        "Tranquilo": "Sem problemas",
+        "Bora": "Vamos",
+        "maneiro": "legal",
+        "SHOW": "muito legal",
+        "LENDÁRIA": "lendária",
+        "GIGANTES": "grandes nomes",
+        "MAIORES": "maiores",
+    }
+
+    for original, corrigido in substituicoes.items():
+        texto = texto.replace(original, corrigido)
+
+    return texto
+
+
+def corrigir_resposta_traduzida(texto, codigo_destino):
+    if codigo_destino == "en":
+        substituicoes = {
+            "Hello! How nice you are here.": "Hey! Nice to see you here.",
+            "Which team do you want to explore": "Which team do you want to explore",
+            "Mass": "Cool",
+            "Legal": "Cool",
+            "No problem": "No problem",
+            "Do you want": "Do you want",
+            "Lakers or Celtics": "Lakers or Celtics",
+        }
+
+    elif codigo_destino == "es":
+        substituicoes = {
+            "Hola!": "¡Hola!",
+            "Legal": "¡Genial!",
+            "Sin problemas": "Sin problema",
+        }
+
+    elif codigo_destino == "it":
+        substituicoes = {
+            "Ciao!": "Ciao!",
+        }
+
+    elif codigo_destino == "fr":
+        substituicoes = {
+            "Bonjour!": "Bonjour !",
+        }
+
+    elif codigo_destino == "de":
+        substituicoes = {
+            "Hallo!": "Hallo!",
+        }
+
+    else:
+        return texto
+
+    for original, corrigido in substituicoes.items():
+        texto = texto.replace(original, corrigido)
+
+    return texto
+
+
 def traduzir(texto, origem, destino):
     try:
         if origem == destino:
@@ -127,4 +193,11 @@ def traduzir_para_portugues(texto):
 
 
 def traduzir_do_portugues(texto, codigo_destino):
-    return traduzir(texto, "pt", codigo_destino)
+    if codigo_destino == "pt":
+        return texto
+
+    texto_corrigido = corrigir_girias_antes_de_traduzir(texto)
+    texto_traduzido = traduzir(texto_corrigido, "pt", codigo_destino)
+    texto_traduzido = corrigir_resposta_traduzida(texto_traduzido, codigo_destino)
+
+    return texto_traduzido
