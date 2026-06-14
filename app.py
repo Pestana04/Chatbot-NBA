@@ -209,7 +209,7 @@ def gerar_chave_conversa(mensagem, time_memorizado):
         "historia": ["historia", "história", "origem", "fundação", "fundacao", "fundado", "fundada", "fundados", "criação", "criacao", "criado", "começou", "comecou", "ano", "anos", "surgiu", "nasceu"],
         "jogadores": ["jogadores", "jogador", "astros", "astro", "lendas", "lenda", "nomes", "quem", "ícones", "icones", "estrelas", "estrela", "craque", "craques", "destaque"],
         "titulos": ["titulos", "títulos", "campeonatos", "ganhou", "venceu", "quantos", "rings", "anéis", "aneis"],
-        "estadio": ["estadio", "estádio", "arena", "casa", "onde", "joga", "local", "ginásio", "ginasio"],
+        "estadio": ["estadio", "estádio", "arena", "casa", "onde", "local", "ginásio", "ginasio"],
         "conferenciaatualmente": ["conferencia", "conferência", "leste", "oeste", "divisao", "divisão"],
         "tecnico": ["tecnico", "técnico", "treinador", "coach"],
         "rivalidade": ["rivalidade", "rival", "inimigo", "enfrenta"],
@@ -239,16 +239,17 @@ def gerar_chave_conversa(mensagem, time_memorizado):
     return None
 
 
-def responder_com_fallback(mensagem, mensagem_padrao):
+def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
     """
     Acionado quando a base de conhecimento não tem resposta suficiente.
 
-    Tenta a LLM local da Hugging Face como fallback. Se a LLM não estiver
-    disponível (ex.: dependências não instaladas) ou falhar, devolve a
-    resposta padrão. A mensagem já chega em português, então a LLM responde
-    em português e a tradução final cuida do idioma do usuário.
+    Tenta a LLM local da Hugging Face como fallback, passando o histórico da
+    conversa para dar contexto. Se a LLM não estiver disponível (ex.:
+    dependências não instaladas) ou falhar, devolve a resposta padrão. A
+    mensagem já chega em português, então a LLM responde em português e a
+    tradução final cuida do idioma do usuário.
     """
-    resposta_llm = gerar_resposta_llm(mensagem)
+    resposta_llm = gerar_resposta_llm(mensagem, historico)
 
     if resposta_llm:
         return resposta_llm, "llm"
@@ -309,6 +310,21 @@ def obter_respostas(mensagem, session_id):
             "base"
         )
 
+    historico = user_memory.get(f"{session_id}_hist", [])
+
+    # Stickiness: se a última resposta veio da LLM (ex.: estávamos falando de um
+    # jogador) e esta é um follow-up com pronome ("ele", "dele"...) sem citar um
+    # time pelo nome, mantemos o assunto na LLM (com o contexto da conversa).
+    pronomes = {"ele", "ela", "dele", "dela", "nele", "nela", "seu", "sua", "seus", "suas"}
+    tem_pronome = any(t in pronomes for t in _tokens_simples(mensagem))
+    ultima_fonte = user_memory.get(f"{session_id}_ultima_fonte")
+
+    if tem_pronome and ultima_fonte == "llm" and not time_citado_pelo_nome(mensagem):
+        resposta_llm = gerar_resposta_llm(mensagem, historico)
+
+        if resposta_llm:
+            return resposta_llm, "llm"
+
     chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
 
     if chave_conversa and chave_conversa in BANCO_CONVERSAS:
@@ -349,13 +365,13 @@ def obter_respostas(mensagem, session_id):
             f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: "
             f"história, jogadores, títulos, estádio ou rivalidades!"
         )
-        return responder_com_fallback(mensagem, mensagem_padrao)
+        return responder_com_fallback(mensagem, mensagem_padrao, historico)
 
     mensagem_padrao = (
         "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
         "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
     )
-    return responder_com_fallback(mensagem, mensagem_padrao)
+    return responder_com_fallback(mensagem, mensagem_padrao, historico)
 
 
 @app.route("/", methods=["GET"])
@@ -394,6 +410,14 @@ def chat():
         fonte = "base"
     else:
         bot_response, fonte = obter_respostas(mensagem_em_portugues, session_id)
+
+    # Guarda o histórico (em PT) para dar contexto à LLM em follow-ups, e a
+    # última fonte para a regra de stickiness. Mantém só os últimos turnos.
+    historico = user_memory.get(f"{session_id}_hist", [])
+    historico.append({"role": "user", "content": mensagem_em_portugues})
+    historico.append({"role": "assistant", "content": bot_response})
+    user_memory[f"{session_id}_hist"] = historico[-6:]
+    user_memory[f"{session_id}_ultima_fonte"] = fonte
 
     resposta_final = traduzir_do_portugues(bot_response, codigo_idioma)
 

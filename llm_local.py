@@ -85,9 +85,13 @@ def _limpar_resposta(texto_gerado, prompt):
     return resposta
 
 
-def gerar_resposta_llm(pergunta):
+def gerar_resposta_llm(pergunta, historico=None):
     """
     Tenta gerar uma resposta usando a LLM local.
+
+    `historico` é uma lista opcional de mensagens anteriores no formato
+    {"role": "user"/"assistant", "content": ...}, usada para dar contexto
+    em perguntas de acompanhamento (ex.: "em qual time ele joga?").
 
     Retorna a string gerada ou None quando a LLM não está disponível
     (ex.: dependências não instaladas) ou quando a geração falha. Nesses
@@ -100,11 +104,13 @@ def gerar_resposta_llm(pergunta):
 
     try:
         if _suporta_chat(gerador):
-            # Modelo instruído: usa o chat template (system + user).
-            mensagens = [
-                {"role": "system", "content": INSTRUCAO_SISTEMA},
-                {"role": "user", "content": pergunta},
-            ]
+            # Modelo instruído: usa o chat template (system + histórico + user).
+            mensagens = [{"role": "system", "content": INSTRUCAO_SISTEMA}]
+
+            if historico:
+                mensagens.extend(historico)
+
+            mensagens.append({"role": "user", "content": pergunta})
 
             saida = gerador(
                 mensagens,
