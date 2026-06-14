@@ -45,6 +45,12 @@ except Exception:
     nltk.download("stopwords", quiet=True)
 
 
+try:
+    _STOPWORDS_PT = set(stopwords.words("portuguese"))
+except Exception:
+    _STOPWORDS_PT = set()
+
+
 def processar_texto(texto):
     tokens = word_tokenize(texto.lower(), language="portuguese")
     stop_words = set(stopwords.words("portuguese"))
@@ -81,23 +87,40 @@ def eh_saudacao(mensagem, saudacao):
     return re.search(padrao, mensagem.lower()) is not None
 
 
+# Palavras que confirmam ("sim") e palavras de acompanhamento que não mudam o
+# sentido de uma confirmação (ex.: o "gostaria" de "sim, gostaria").
+PALAVRAS_AFIRMATIVAS = {
+    "sim", "ss", "claro", "quer", "quero", "queria", "gostaria", "gostei",
+    "boa", "beleza", "blz", "vamo", "vamos", "tá", "ta", "ok", "okay", "okh",
+    "okk", "opa", "yes", "yah", "bora", "isso", "exato", "positivo", "aham",
+    "uhum", "pode", "manda", "mande", "continua", "continue", "segue",
+    "prossegue", "certeza"
+}
+
+PALAVRAS_ACOMPANHAMENTO = {
+    "com", "por", "favor", "muito", "demais", "mais", "ai", "aí", "sim",
+    "próxima", "proxima", "pergunta", "tudo", "bem", "ser", "mandar", "saber",
+    "falar", "fala", "contar", "conta", "sobre", "me", "te", "agora", "já",
+    "bom"
+}
+
+
 def eh_resposta_afirmativa(texto):
-    texto_lower = texto.lower().strip()
+    tokens = _tokens_simples(texto)
 
-    respostas_afirmativas = {
-        "sim", "ss", "claro", "quer", "quero", "quero sim", "quer sim",
-        "claro que sim", "com certeza", "boa", "beleza", "blz", "vamo",
-        "vamos", "tá", "ta", "ta bom", "tá bom", "ok", "okh", "okk", "opa",
-        "yes", "yah", "bora", "isso", "pode"
-    }
+    if not tokens:
+        return False
 
-    if texto_lower in respostas_afirmativas:
-        return True
+    # Precisa ter ao menos uma palavra de confirmação ("sim", "quero"...).
+    if not any(t in PALAVRAS_AFIRMATIVAS for t in tokens):
+        return False
 
-    # Só é afirmação quando a mensagem é *só* isso (ex.: "sim", "quero sim"),
-    # e não quando a palavra aparece de passagem (ex.: "quero saber dos warriors").
-    tokens = _tokens_simples(texto_lower)
-    return bool(tokens) and all(t in respostas_afirmativas for t in tokens)
+    # É confirmação só se o resto for "enchimento" (acompanhamento/stopwords).
+    # Se sobrar uma palavra de conteúdo (ex.: "warriors"), é um pedido novo.
+    ignoraveis = PALAVRAS_AFIRMATIVAS | PALAVRAS_ACOMPANHAMENTO | _STOPWORDS_PT
+    restante = [t for t in tokens if t not in ignoraveis]
+
+    return not restante
 
 
 def eh_resposta_negativa(texto):
@@ -184,7 +207,7 @@ def gerar_chave_conversa(mensagem, time_memorizado):
 
     tipos_pergunta = {
         "historia": ["historia", "história", "origem", "fundação", "fundacao", "fundado", "fundada", "fundados", "criação", "criacao", "criado", "começou", "comecou", "ano", "anos", "surgiu", "nasceu"],
-        "jogadores": ["jogadores", "astros", "lendas", "nomes", "quem", "ícones", "icones", "estrelas"],
+        "jogadores": ["jogadores", "jogador", "astros", "astro", "lendas", "lenda", "nomes", "quem", "ícones", "icones", "estrelas", "estrela", "craque", "craques", "destaque"],
         "titulos": ["titulos", "títulos", "campeonatos", "ganhou", "venceu", "quantos", "rings", "anéis", "aneis"],
         "estadio": ["estadio", "estádio", "arena", "casa", "onde", "joga", "local", "ginásio", "ginasio"],
         "conferenciaatualmente": ["conferencia", "conferência", "leste", "oeste", "divisao", "divisão"],
