@@ -187,6 +187,11 @@
             chatBox.appendChild(digitandoMsg);
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            // Tempo mínimo mostrando o "pensando": mesmo quando a resposta vem
+            // da base (instantânea), o indicador fica ~1,2s pra dar consistência.
+            var inicioPensando = Date.now();
+            var MIN_PENSANDO = 1200;
+
             fetch("/chat", {
                 method: "POST",
                 body: formData
@@ -194,24 +199,31 @@
             .then(response => response.json())
             .then(data => {
 
-                // Troca o indicador pela resposta real.
-                digitandoMsg.classList.remove("typing");
-                digitandoMsg.innerText = data.response;
+                var decorrido = Date.now() - inicioPensando;
+                var espera = Math.max(0, MIN_PENSANDO - decorrido);
 
-                var fontes = {
-                    "base":   { classe: "fonte-base",   texto: "🗂️ Base de dados" },
-                    "llm":    { classe: "fonte-llm",    texto: "🧠 IA (LLM Hugging Face)" },
-                    "padrao": { classe: "fonte-padrao", texto: "🤖 Resposta padrão" }
-                };
+                setTimeout(function() {
 
-                var info = fontes[data.fonte] || fontes["padrao"];
+                    // Troca o indicador pela resposta real.
+                    digitandoMsg.classList.remove("typing");
+                    digitandoMsg.innerText = data.response;
 
-                var badge = document.createElement("div");
-                badge.className = "fonte-badge " + info.classe;
-                badge.innerText = info.texto + "  ·  🌍 " + data.idioma;
-                chatBox.appendChild(badge);
+                    var fontes = {
+                        "base":   { classe: "fonte-base",   texto: "🗂️ Base de dados" },
+                        "llm":    { classe: "fonte-llm",    texto: "🧠 IA (LLM Hugging Face)" },
+                        "padrao": { classe: "fonte-padrao", texto: "🤖 Resposta padrão" }
+                    };
 
-                chatBox.scrollTop = chatBox.scrollHeight;
+                    var info = fontes[data.fonte] || fontes["padrao"];
+
+                    var badge = document.createElement("div");
+                    badge.className = "fonte-badge " + info.classe;
+                    badge.innerText = info.texto + "  ·  🌍 " + data.idioma;
+                    chatBox.appendChild(badge);
+
+                    chatBox.scrollTop = chatBox.scrollHeight;
+
+                }, espera);
             })
             .catch(error => {
                 console.error("Erro:", error);
