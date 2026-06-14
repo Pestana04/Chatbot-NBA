@@ -7,7 +7,33 @@ O tema escolhido para este chatbot exploratório foi **NBA (National Basketball 
 ## Requisitos
 - Linguagem de Programação: Python
 - NLP: NLTK (Natural Language Toolkit) utilizado para tokenizar e remover stopwords da entrada, para simular uma inteligência do bot.
+- Base de conhecimento: estrutura local em `dados.json`, consultada pelo agente **antes** de qualquer chamada ao modelo de linguagem.
+- LLM (modelo de linguagem): um modelo da plataforma [Hugging Face](https://huggingface.co/models), rodando localmente via `transformers`, usado como **fallback** quando a base de conhecimento não tem resposta.
 - Interface Web: Desenvolvida com HTML, CSS e JavaScript (tudo no mesmo arquivo pra facilitar hehe) e servida usando o framework Flask.
+
+## Fluxo do agente (Base de conhecimento + LLM)
+
+O sistema segue o fluxo exigido pelo trabalho:
+
+1. O agente **primeiro** tenta responder usando a base de conhecimento estruturada (`dados.json`): saudações, palavras-chave dos times e o banco de conversas.
+2. **Caso não haja informação suficiente**, o agente aciona a **LLM como fallback** (`llm_local.py`), que gera a resposta com um modelo da Hugging Face.
+3. Cada resposta vem marcada com sua **fonte**, exibida na interface:
+   - 🗂️ **Base de dados** — veio da base de conhecimento (`dados.json`);
+   - 🧠 **IA (LLM Hugging Face)** — gerada pela LLM como fallback;
+   - 🤖 **Resposta padrão** — mensagem de orientação (usada quando a LLM não está disponível).
+
+Como o chatbot é poliglota, a mensagem do usuário é traduzida para português antes do processamento e a resposta (da base ou da LLM) é traduzida de volta para o idioma do usuário.
+
+### Configuração da LLM (opcional)
+
+O modelo padrão é o `pierreguillou/gpt2-small-portuguese`. Dá para trocar por qualquer outro modelo de geração de texto da Hugging Face via variáveis de ambiente:
+
+```bash
+export LLM_MODELO="pierreguillou/gpt2-small-portuguese"   # nome do modelo na Hugging Face
+export LLM_MAX_TOKENS="60"                                 # tamanho máximo da resposta gerada
+```
+
+> Na primeira execução, o `transformers` baixa os pesos do modelo automaticamente (pode demorar). Se as dependências da LLM não estiverem instaladas, o app continua funcionando normalmente com a base de conhecimento e a resposta padrão.
 
 ## Decisões de Desenvolvimento
 1. **Framework:** Usamos o Flask porque é muito simples e rápido de rodar um servidor local pra testes da faculdade.
