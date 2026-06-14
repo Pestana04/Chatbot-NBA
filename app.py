@@ -160,6 +160,25 @@ def detectar_time(mensagem):
     return None
 
 
+# Nomes do próprio time (sem apelidos/jogadores). Usado para decidir quando
+# iniciar a jornada guiada: só começamos o tour quando o usuário cita o TIME,
+# não quando cita um jogador (ex.: "lebron james" deve ir para a LLM).
+NOMES_DE_TIME = {
+    "lakers": ["lakers", "los angeles", "angeles"],
+    "celtics": ["celtics", "boston"],
+}
+
+
+def time_citado_pelo_nome(mensagem):
+    mensagem_lower = mensagem.lower()
+
+    for time, nomes in NOMES_DE_TIME.items():
+        if any(nome in mensagem_lower for nome in nomes):
+            return time
+
+    return None
+
+
 def gerar_chave_conversa(mensagem, time_memorizado):
     palavras = processar_texto(mensagem)
 
@@ -225,10 +244,13 @@ def obter_respostas(mensagem, session_id):
     time_detectado = detectar_time(mensagem)
 
     if time_detectado:
+        # Só reinicia a jornada se o time mudou; senão mantém o progresso.
+        if time_detectado != time_memorizado:
+            indice_pergunta = -1
+            user_memory[f"{session_id}_indice"] = -1
+
         user_memory[session_id] = time_detectado
         time_memorizado = time_detectado
-        indice_pergunta = -1
-        user_memory[f"{session_id}_indice"] = -1
 
     if eh_resposta_negativa(mensagem):
         if time_memorizado:
@@ -287,10 +309,13 @@ def obter_respostas(mensagem, session_id):
 
         return resposta_obj, "base"
 
-    # O usuário citou um time agora, mas sem um tópico específico:
+    # O usuário citou o NOME de um time, mas sem um tópico específico:
     # iniciamos a jornada pela história desse time (resposta da base).
-    if time_detectado:
-        chave_inicial = f"{time_detectado}_historia"
+    # Jogadores/apelidos (ex.: "lebron james") não entram aqui e caem na LLM.
+    time_citado = time_citado_pelo_nome(mensagem)
+
+    if time_citado:
+        chave_inicial = f"{time_citado}_historia"
 
         if chave_inicial in BANCO_CONVERSAS:
             user_memory[f"{session_id}_indice"] = 0
