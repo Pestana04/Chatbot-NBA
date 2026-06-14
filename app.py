@@ -164,25 +164,27 @@ def gerar_chave_conversa(mensagem, time_memorizado):
     palavras = processar_texto(mensagem)
 
     tipos_pergunta = {
-        "historia": ["historia", "origem", "fundação", "foi", "criação", "começou"],
-        "jogadores": ["jogadores", "astros", "lendas", "nomes", "quem", "ícones", "estrelas"],
-        "titulos": ["titulos", "campeonatos", "ganhou", "venceu", "quantos", "rings"],
-        "estadio": ["estadio", "arena", "casa", "onde", "joga", "local"],
-        "conferencia": ["conferencia", "leste", "oeste", "divisao", "qual"],
-        "tecnico": ["tecnico", "treinador", "coach"],
+        "historia": ["historia", "história", "origem", "fundação", "fundacao", "fundado", "fundada", "fundados", "criação", "criacao", "criado", "começou", "comecou", "ano", "anos", "surgiu", "nasceu"],
+        "jogadores": ["jogadores", "astros", "lendas", "nomes", "quem", "ícones", "icones", "estrelas"],
+        "titulos": ["titulos", "títulos", "campeonatos", "ganhou", "venceu", "quantos", "rings", "anéis", "aneis"],
+        "estadio": ["estadio", "estádio", "arena", "casa", "onde", "joga", "local", "ginásio", "ginasio"],
+        "conferenciaatualmente": ["conferencia", "conferência", "leste", "oeste", "divisao", "divisão"],
+        "tecnico": ["tecnico", "técnico", "treinador", "coach"],
         "rivalidade": ["rivalidade", "rival", "inimigo", "enfrenta"],
-        "presente": ["agora", "atualmente", "hoje", "como está"],
-        "futuro": ["futuro", "vai", "próximo", "vai ser"],
+        "presente": ["agora", "atualmente", "hoje"],
+        "futuro": ["futuro", "próximo", "proximo"],
     }
 
-    tipo_identificado = "historia"
+    # Sem palavra-chave de tópico, NÃO assumimos um tópico padrão: assim a
+    # pergunta não recebe uma resposta da base "na marra" e pode cair na LLM.
+    tipo_identificado = None
 
     for tipo, palavras_tipo in tipos_pergunta.items():
         if any(p in palavras for p in palavras_tipo):
             tipo_identificado = tipo
             break
 
-    if time_memorizado:
+    if time_memorizado and tipo_identificado:
         chave = f"{time_memorizado}_{tipo_identificado}"
 
         if chave in BANCO_CONVERSAS:
@@ -284,6 +286,15 @@ def obter_respostas(mensagem, session_id):
             return resposta, "base"
 
         return resposta_obj, "base"
+
+    # O usuário citou um time agora, mas sem um tópico específico:
+    # iniciamos a jornada pela história desse time (resposta da base).
+    if time_detectado:
+        chave_inicial = f"{time_detectado}_historia"
+
+        if chave_inicial in BANCO_CONVERSAS:
+            user_memory[f"{session_id}_indice"] = 0
+            return processar_resposta_com_sugestao(chave_inicial), "base"
 
     if time_memorizado:
         mensagem_padrao = (
