@@ -5,6 +5,7 @@ from nltk.corpus import stopwords
 import string
 import json
 import os
+import re
 
 from tradutor_local import (
     traduzir_para_portugues,
@@ -68,35 +69,53 @@ def contem_palavrao(texto):
     return False
 
 
+def _tokens_simples(texto):
+    """Quebra o texto em palavras já sem pontuação, em minúsculas."""
+    tokens = [t.strip(string.punctuation) for t in texto.lower().split()]
+    return [t for t in tokens if t]
+
+
+def eh_saudacao(mensagem, saudacao):
+    """Casa a saudação como palavra inteira (evita 'oi' dentro de 'foi')."""
+    padrao = r"\b" + re.escape(saudacao) + r"\b"
+    return re.search(padrao, mensagem.lower()) is not None
+
+
 def eh_resposta_afirmativa(texto):
     texto_lower = texto.lower().strip()
 
     respostas_afirmativas = {
         "sim", "ss", "claro", "quer", "quero", "quero sim", "quer sim",
         "claro que sim", "com certeza", "boa", "beleza", "blz", "vamo",
-        "vamos", "tá", "ta bom", "ok", "okh", "okk", "opa", "yes", "yah"
+        "vamos", "tá", "ta", "ta bom", "tá bom", "ok", "okh", "okk", "opa",
+        "yes", "yah", "bora", "isso", "pode"
     }
 
-    return texto_lower in respostas_afirmativas or any(
-        pal in texto_lower for pal in respostas_afirmativas
-    )
+    if texto_lower in respostas_afirmativas:
+        return True
+
+    # Só é afirmação quando a mensagem é *só* isso (ex.: "sim", "quero sim"),
+    # e não quando a palavra aparece de passagem (ex.: "quero saber dos warriors").
+    tokens = _tokens_simples(texto_lower)
+    return bool(tokens) and all(t in respostas_afirmativas for t in tokens)
 
 
 def eh_resposta_negativa(texto):
     texto_lower = texto.lower().strip()
-    respostas_negativas = {"não", "nao", "n", "nunca", "nope"}
 
-    if texto_lower in respostas_negativas:
+    respostas_negativas = {"não", "nao", "n", "nunca", "nope", "negativo"}
+    frases_negativas = {
+        "não quero", "nao quero", "não obrigado", "nao obrigado",
+        "não, obrigado", "nao, obrigado"
+    }
+
+    if texto_lower in respostas_negativas or texto_lower in frases_negativas:
         return True
 
-    if "não quero" in texto_lower or "nao quero" in texto_lower:
-        return True
-
-    for n in respostas_negativas:
-        if texto_lower.startswith(n + " ") or texto_lower.startswith(n + ","):
-            return True
-
-    return False
+    # Só é negação quando a mensagem é *só* isso (ex.: "não", "não nunca"),
+    # e não quando há um pedido junto (ex.: "nao, quero saber dos warriors").
+    tokens = _tokens_simples(texto_lower)
+    return bool(tokens) and all(t in respostas_negativas for t in tokens)
 
 
 def obter_proxima_pergunta(time, indice_atual):
@@ -194,10 +213,8 @@ def responder_com_fallback(mensagem, mensagem_padrao):
 
 
 def obter_respostas(mensagem, session_id):
-    mensagem_lower = mensagem.lower()
-
     for saudacao, resposta in SAUDACOES.items():
-        if saudacao in mensagem_lower:
+        if eh_saudacao(mensagem, saudacao):
             return resposta, "base"
 
     time_memorizado = user_memory.get(session_id)
