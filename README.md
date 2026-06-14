@@ -26,12 +26,14 @@ Como o chatbot é poliglota, a mensagem do usuário é traduzida para português
 
 ### Configuração da LLM (opcional)
 
-O modelo padrão é o `pierreguillou/gpt2-small-portuguese`. Dá para trocar por qualquer outro modelo de geração de texto da Hugging Face via variáveis de ambiente:
+O modelo padrão é o [`Qwen/Qwen2.5-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) — um modelo instruído e multilíngue da Hugging Face, leve o bastante para rodar localmente. Dá para trocar por qualquer outro modelo de geração de texto da Hugging Face via variáveis de ambiente:
 
 ```bash
-export LLM_MODELO="pierreguillou/gpt2-small-portuguese"   # nome do modelo na Hugging Face
-export LLM_MAX_TOKENS="60"                                 # tamanho máximo da resposta gerada
+export LLM_MODELO="Qwen/Qwen2.5-0.5B-Instruct"   # nome do modelo na Hugging Face
+export LLM_MAX_TOKENS="150"                       # tamanho máximo da resposta gerada
 ```
+
+> Modelos instruídos (com *chat template*) são usados via formato de conversa; modelos simples como o GPT-2 caem automaticamente num prompt de texto puro.
 
 > Na primeira execução, o `transformers` baixa os pesos do modelo automaticamente (pode demorar). Se as dependências da LLM não estiverem instaladas, o app continua funcionando normalmente com a base de conhecimento e a resposta padrão.
 
