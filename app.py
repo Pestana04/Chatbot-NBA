@@ -13,6 +13,7 @@ from tradutor_local import (
     detectar_codigo_idioma,
     instalar_idiomas
 )
+from llm_local import gerar_resposta_llm
 
 app = Flask(__name__)
 
@@ -175,6 +176,23 @@ def gerar_chave_conversa(mensagem, time_memorizado):
     return None
 
 
+def responder_com_fallback(mensagem, mensagem_padrao):
+    """
+    Acionado quando a base de conhecimento não tem resposta suficiente.
+
+    Tenta a LLM local da Hugging Face como fallback. Se a LLM não estiver
+    disponível (ex.: dependências não instaladas) ou falhar, devolve a
+    resposta padrão. A mensagem já chega em português, então a LLM responde
+    em português e a tradução final cuida do idioma do usuário.
+    """
+    resposta_llm = gerar_resposta_llm(mensagem)
+
+    if resposta_llm:
+        return resposta_llm, "llm"
+
+    return mensagem_padrao, "padrao"
+
+
 def obter_respostas(mensagem, session_id):
     mensagem_lower = mensagem.lower()
 
@@ -251,17 +269,17 @@ def obter_respostas(mensagem, session_id):
         return resposta_obj, "base"
 
     if time_memorizado:
-        return (
+        mensagem_padrao = (
             f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: "
-            f"história, jogadores, títulos, estádio ou rivalidades!",
-            "padrao"
+            f"história, jogadores, títulos, estádio ou rivalidades!"
         )
+        return responder_com_fallback(mensagem, mensagem_padrao)
 
-    return (
+    mensagem_padrao = (
         "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
-        "Depois pergunta sobre história, jogadores, títulos, estádio e mais!",
-        "padrao"
+        "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
     )
+    return responder_com_fallback(mensagem, mensagem_padrao)
 
 
 @app.route("/", methods=["GET"])
