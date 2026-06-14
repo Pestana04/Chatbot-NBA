@@ -123,6 +123,24 @@
         .fonte-base  { color: #1d428a; }
         .fonte-padrao { color: #888; }
         .fonte-llm { color: #c9082a; }
+
+        .typing {
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .typing::after {
+            content: "";
+            animation: pontos 1.2s steps(4, end) infinite;
+        }
+
+        @keyframes pontos {
+            0%   { content: ""; }
+            25%  { content: "."; }
+            50%  { content: ".."; }
+            75%  { content: "..."; }
+            100% { content: ""; }
+        }
     </style>
 </head>
 <body>
@@ -161,56 +179,45 @@
             var formData = new FormData();
             formData.append("msg", message);
 
+            // Mostra o "pensando" IMEDIATAMENTE, enquanto a requisição roda
+            // (a LLM pode levar alguns segundos pra gerar a resposta).
+            var digitandoMsg = document.createElement("div");
+            digitandoMsg.className = "message bot-msg typing";
+            digitandoMsg.innerText = "🏀 Bot da NBA está pensando";
+            chatBox.appendChild(digitandoMsg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
             fetch("/chat", {
                 method: "POST",
                 body: formData
             })
             .then(response => response.json())
-                .then(data => {
+            .then(data => {
 
-                    var digitandoMsg = document.createElement("div");
-                    digitandoMsg.className = "message bot-msg";
+                // Troca o indicador pela resposta real.
+                digitandoMsg.classList.remove("typing");
+                digitandoMsg.innerText = data.response;
 
-                    digitandoMsg.innerText =
-                        "🌍 Pesquisando em " + data.idioma + "...";
+                var fontes = {
+                    "base":   { classe: "fonte-base",   texto: "🗂️ Base de dados" },
+                    "llm":    { classe: "fonte-llm",    texto: "🧠 IA (LLM Hugging Face)" },
+                    "padrao": { classe: "fonte-padrao", texto: "🤖 Resposta padrão" }
+                };
 
-                    chatBox.appendChild(digitandoMsg);
-                    chatBox.scrollTop = chatBox.scrollHeight;
+                var info = fontes[data.fonte] || fontes["padrao"];
 
-                    setTimeout(() => {
+                var badge = document.createElement("div");
+                badge.className = "fonte-badge " + info.classe;
+                badge.innerText = info.texto + "  ·  🌍 " + data.idioma;
+                chatBox.appendChild(badge);
 
-                        digitandoMsg.innerText =
-                            "🏀 Bot da NBA está escrevendo...";
-
-                        chatBox.scrollTop = chatBox.scrollHeight;
-
-                        setTimeout(() => {
-
-                            digitandoMsg.innerText = data.response;
-
-                            var fontes = {
-                                "base":   { classe: "fonte-base",   texto: "🗂️ Base de dados" },
-                                "llm":    { classe: "fonte-llm",    texto: "🧠 IA (LLM Hugging Face)" },
-                                "padrao": { classe: "fonte-padrao", texto: "🤖 Resposta padrão" }
-                            };
-
-                            var info = fontes[data.fonte] || fontes["padrao"];
-
-                            var badge = document.createElement("div");
-                            badge.className = "fonte-badge " + info.classe;
-                            badge.innerText = info.texto;
-                            chatBox.appendChild(badge);
-
-                            chatBox.scrollTop = chatBox.scrollHeight;
-
-                        }, 1200);
-
-                    }, 1200);
-
-                })
+                chatBox.scrollTop = chatBox.scrollHeight;
+            })
             .catch(error => {
                 console.error("Erro:", error);
-                chatBox.innerHTML += '<div class="message bot-msg">Ops, deu erro no servidor. Ligou o Flask lá no terminal?</div>';
+                digitandoMsg.classList.remove("typing");
+                digitandoMsg.innerText = "Ops, deu erro no servidor. Ligou o Flask lá no terminal?";
+                chatBox.scrollTop = chatBox.scrollHeight;
             });
         }
     </script>
