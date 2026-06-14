@@ -89,9 +89,15 @@ def detectar_codigo_idioma(texto):
         return palavras_curtas[texto_lower]
 
     # Sinais fortes de português: acentuação típica ou palavras marcantes.
-    tokens = set(re.findall(r"[a-zà-ÿ]+", texto_lower))
+    palavras = re.findall(r"[a-zà-ÿ]+", texto_lower)
 
-    if re.search(r"[ãõçáàâéêíóôúü]", texto_lower) or (tokens & MARCADORES_PT):
+    if re.search(r"[ãõçáàâéêíóôúü]", texto_lower) or (set(palavras) & MARCADORES_PT):
+        return "pt"
+
+    # Mensagens muito curtas (1-2 palavras, ex.: "claro", "lebron james")
+    # confundem o langdetect; assumimos português (idioma principal do bot).
+    # Saudações estrangeiras conhecidas já foram tratadas acima.
+    if len(palavras) <= 2:
         return "pt"
 
     # Sem sinal claro de PT: confia no langdetect só com confiança alta,
