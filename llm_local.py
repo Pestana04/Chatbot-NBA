@@ -13,9 +13,9 @@ import os
 
 # Nome do modelo da Hugging Face (https://huggingface.co/models).
 # Pode ser trocado pela variável de ambiente LLM_MODELO. O padrão é o
-# Qwen2.5-0.5B-Instruct: um modelo instruído (segue perguntas), multilíngue
-# (bom em português) e leve o suficiente para rodar localmente na CPU/MPS.
-MODELO_PADRAO = os.environ.get("LLM_MODELO", "Qwen/Qwen2.5-0.5B-Instruct")
+# Qwen2.5-1.5B-Instruct: um modelo instruído (segue perguntas), multilíngue
+# (bom em português) e com respostas mais precisas que a versão 0.5B.
+MODELO_PADRAO = os.environ.get("LLM_MODELO", "Qwen/Qwen2.5-1.5B-Instruct")
 
 # Quantidade máxima de tokens novos que a LLM gera por resposta.
 MAX_TOKENS_NOVOS = int(os.environ.get("LLM_MAX_TOKENS", "150"))

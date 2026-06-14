@@ -26,10 +26,10 @@ Como o chatbot é poliglota, a mensagem do usuário é traduzida para português
 
 ### Configuração da LLM (opcional)
 
-O modelo padrão é o [`Qwen/Qwen2.5-0.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) — um modelo instruído e multilíngue da Hugging Face, leve o bastante para rodar localmente. Dá para trocar por qualquer outro modelo de geração de texto da Hugging Face via variáveis de ambiente:
+O modelo padrão é o [`Qwen/Qwen2.5-1.5B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct) — um modelo instruído e multilíngue da Hugging Face, que roda localmente. Dá para trocar por qualquer outro modelo de geração de texto da Hugging Face via variáveis de ambiente (ex.: `Qwen/Qwen2.5-0.5B-Instruct` é mais leve/rápido):
 
 ```bash
-export LLM_MODELO="Qwen/Qwen2.5-0.5B-Instruct"   # nome do modelo na Hugging Face
+export LLM_MODELO="Qwen/Qwen2.5-1.5B-Instruct"   # nome do modelo na Hugging Face
 export LLM_MAX_TOKENS="150"                       # tamanho máximo da resposta gerada
 ```
 
