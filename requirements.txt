@@ -2,3 +2,5 @@ Flask==3.0.3
 nltk==3.8.1
 argostranslate
 langdetect
+transformers
+torch
