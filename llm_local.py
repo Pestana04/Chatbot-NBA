@@ -12,12 +12,13 @@ import os
 
 
 # Nome do modelo da Hugging Face (https://huggingface.co/models).
-# Pode ser trocado pela variável de ambiente LLM_MODELO. O padrão é um GPT-2
-# pequeno treinado em português, leve o suficiente para rodar na CPU.
-MODELO_PADRAO = os.environ.get("LLM_MODELO", "pierreguillou/gpt2-small-portuguese")
+# Pode ser trocado pela variável de ambiente LLM_MODELO. O padrão é o
+# Qwen2.5-0.5B-Instruct: um modelo instruído (segue perguntas), multilíngue
+# (bom em português) e leve o suficiente para rodar localmente na CPU/MPS.
+MODELO_PADRAO = os.environ.get("LLM_MODELO", "Qwen/Qwen2.5-0.5B-Instruct")
 
 # Quantidade máxima de tokens novos que a LLM gera por resposta.
-MAX_TOKENS_NOVOS = int(os.environ.get("LLM_MAX_TOKENS", "60"))
+MAX_TOKENS_NOVOS = int(os.environ.get("LLM_MAX_TOKENS", "150"))
 
 
 # O pipeline é pesado, então carregamos uma única vez (lazy loading) e
@@ -54,8 +55,19 @@ def _carregar_modelo():
         return None
 
 
+INSTRUCAO_SISTEMA = (
+    "Você é um especialista em NBA. Responda sempre em português, de forma "
+    "curta, clara e amigável. Se não souber, diga que não tem certeza."
+)
+
+
+def _suporta_chat(gerador):
+    """Indica se o modelo tem um chat template (modelos instruídos têm)."""
+    return getattr(gerador.tokenizer, "chat_template", None) is not None
+
+
 def _montar_prompt(pergunta):
-    """Monta um prompt simples para guiar a LLM a responder sobre NBA."""
+    """Prompt simples para modelos sem chat template (ex.: GPT-2)."""
     return (
         "Você é um especialista em NBA e responde de forma curta e amigável.\n"
         f"Pergunta: {pergunta}\n"
@@ -86,27 +98,50 @@ def gerar_resposta_llm(pergunta):
     if gerador is None:
         return None
 
-    prompt = _montar_prompt(pergunta)
-
     try:
-        saida = gerador(
-            prompt,
-            max_new_tokens=MAX_TOKENS_NOVOS,
-            num_return_sequences=1,
-            do_sample=True,
-            top_k=50,
-            top_p=0.95,
-            temperature=0.8,
-            pad_token_id=gerador.tokenizer.eos_token_id,
-        )
+        if _suporta_chat(gerador):
+            # Modelo instruído: usa o chat template (system + user).
+            mensagens = [
+                {"role": "system", "content": INSTRUCAO_SISTEMA},
+                {"role": "user", "content": pergunta},
+            ]
 
-        texto_gerado = saida[0]["generated_text"]
-        resposta = _limpar_resposta(texto_gerado, prompt)
+            saida = gerador(
+                mensagens,
+                max_new_tokens=MAX_TOKENS_NOVOS,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                pad_token_id=gerador.tokenizer.eos_token_id,
+            )
 
-        if not resposta:
-            return None
+            gerado = saida[0]["generated_text"]
 
-        return resposta
+            # Com entrada em formato de chat, a saída é a lista de mensagens;
+            # a última é a resposta do assistente.
+            if isinstance(gerado, list):
+                resposta = gerado[-1]["content"].strip()
+            else:
+                resposta = str(gerado).strip()
+
+        else:
+            # Modelo simples (ex.: GPT-2): prompt de texto puro.
+            prompt = _montar_prompt(pergunta)
+
+            saida = gerador(
+                prompt,
+                max_new_tokens=MAX_TOKENS_NOVOS,
+                num_return_sequences=1,
+                do_sample=True,
+                top_k=50,
+                top_p=0.95,
+                temperature=0.8,
+                pad_token_id=gerador.tokenizer.eos_token_id,
+            )
+
+            resposta = _limpar_resposta(saida[0]["generated_text"], prompt)
+
+        return resposta or None
 
     except Exception as erro:
         print(f"Erro ao gerar resposta com a LLM: {erro}")
