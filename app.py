@@ -87,8 +87,6 @@ def eh_saudacao(mensagem, saudacao):
     return re.search(padrao, mensagem.lower()) is not None
 
 
-# Palavras que confirmam ("sim") e palavras de acompanhamento que não mudam o
-# sentido de uma confirmação (ex.: o "gostaria" de "sim, gostaria").
 PALAVRAS_AFIRMATIVAS = {
     "sim", "ss", "claro", "quer", "quero", "queria", "gostaria", "gostei",
     "boa", "beleza", "blz", "vamo", "vamos", "tá", "ta", "ok", "okay", "okh",
@@ -102,6 +100,13 @@ PALAVRAS_ACOMPANHAMENTO = {
     "próxima", "proxima", "pergunta", "tudo", "bem", "ser", "mandar", "saber",
     "falar", "fala", "contar", "conta", "sobre", "me", "te", "agora", "já",
     "bom"
+}
+
+# Tópicos que existem no banco de conversas
+TOPICOS_BANCO = {
+    "historia", "história", "jogadores", "jogador", "titulos", "títulos",
+    "estadio", "estádio", "arena", "conferencia", "conferência", "tecnico",
+    "técnico", "rivalidade", "rival", "presente", "futuro"
 }
 
 
@@ -135,8 +140,6 @@ def eh_resposta_negativa(texto):
     if texto_lower in respostas_negativas or texto_lower in frases_negativas:
         return True
 
-    # Só é negação quando a mensagem é *só* isso (ex.: "não", "não nunca"),
-    # e não quando há um pedido junto (ex.: "nao, quero saber dos warriors").
     tokens = _tokens_simples(texto_lower)
     return bool(tokens) and all(t in respostas_negativas for t in tokens)
 
@@ -183,9 +186,6 @@ def detectar_time(mensagem):
     return None
 
 
-# Nomes do próprio time (sem apelidos/jogadores). Usado para decidir quando
-# iniciar a jornada guiada: só começamos o tour quando o usuário cita o TIME,
-# não quando cita um jogador (ex.: "lebron james" deve ir para a LLM).
 NOMES_DE_TIME = {
     "lakers": ["lakers", "los angeles", "angeles"],
     "celtics": ["celtics", "boston"],
@@ -217,8 +217,6 @@ def gerar_chave_conversa(mensagem, time_memorizado):
         "futuro": ["futuro", "próximo", "proximo"],
     }
 
-    # Sem palavra-chave de tópico, NÃO assumimos um tópico padrão: assim a
-    # pergunta não recebe uma resposta da base "na marra" e pode cair na LLM.
     tipo_identificado = None
 
     for tipo, palavras_tipo in tipos_pergunta.items():
@@ -240,21 +238,41 @@ def gerar_chave_conversa(mensagem, time_memorizado):
 
 
 def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
-    """
-    Acionado quando a base de conhecimento não tem resposta suficiente.
-
-    Tenta a LLM local da Hugging Face como fallback, passando o histórico da
-    conversa para dar contexto. Se a LLM não estiver disponível (ex.:
-    dependências não instaladas) ou falhar, devolve a resposta padrão. A
-    mensagem já chega em português, então a LLM responde em português e a
-    tradução final cuida do idioma do usuário.
-    """
     resposta_llm = gerar_resposta_llm(mensagem, historico)
 
     if resposta_llm:
         return resposta_llm, "llm"
 
     return mensagem_padrao, "padrao"
+
+
+def identificar_contexto(mensagem, time_memorizado):
+    
+    tokens = _tokens_simples(mensagem)
+
+    # Afirmativa pura (ex.: "quero", "sim", "bora") → segue o banco
+    tem_afirmativa = any(t in PALAVRAS_AFIRMATIVAS for t in tokens)
+    ignoraveis = PALAVRAS_AFIRMATIVAS | PALAVRAS_ACOMPANHAMENTO | _STOPWORDS_PT
+    restante = [t for t in tokens if t not in ignoraveis]
+
+    if tem_afirmativa and not restante:
+        return "base"
+
+    # Tem tópico explícito do banco (ex.: "história", "títulos") → banco
+    if any(t in TOPICOS_BANCO for t in tokens):
+        return "base"
+
+    # Citou o nome de um time diretamente → banco
+    if time_citado_pelo_nome(mensagem):
+        return "base"
+
+    # Palavra-chave dos times conhecidos → banco
+    todas_keywords = PALAVRAS_CHAVE_LAKERS | PALAVRAS_CHAVE_CELTICS
+    if any(t in todas_keywords for t in tokens):
+        return "base"
+
+    # Nenhum sinal de que o banco cobre → LLM
+    return "llm"
 
 
 def obter_respostas(mensagem, session_id):
@@ -268,7 +286,6 @@ def obter_respostas(mensagem, session_id):
     time_detectado = detectar_time(mensagem)
 
     if time_detectado:
-        # Só reinicia a jornada se o time mudou; senão mantém o progresso.
         if time_detectado != time_memorizado:
             indice_pergunta = -1
             user_memory[f"{session_id}_indice"] = -1
@@ -312,9 +329,8 @@ def obter_respostas(mensagem, session_id):
 
     historico = user_memory.get(f"{session_id}_hist", [])
 
-    # Stickiness: se a última resposta veio da LLM (ex.: estávamos falando de um
-    # jogador) e esta é um follow-up com pronome ("ele", "dele"...) sem citar um
-    # time pelo nome, mantemos o assunto na LLM (com o contexto da conversa).
+    # Stickiness: se a última resposta veio da LLM e esta é um follow-up
+    # com pronome sem citar um time pelo nome, mantemos o assunto na LLM.
     pronomes = {"ele", "ela", "dele", "dela", "nele", "nela", "seu", "sua", "seus", "suas"}
     tem_pronome = any(t in pronomes for t in _tokens_simples(mensagem))
     ultima_fonte = user_memory.get(f"{session_id}_ultima_fonte")
@@ -325,52 +341,55 @@ def obter_respostas(mensagem, session_id):
         if resposta_llm:
             return resposta_llm, "llm"
 
-    chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
+    # Identificador de contexto: decide se tenta o banco ou vai direto pra LLM
+    contexto = identificar_contexto(mensagem, time_memorizado)
 
-    if chave_conversa and chave_conversa in BANCO_CONVERSAS:
-        if time_memorizado and chave_conversa.startswith(time_memorizado):
-            sequencia = PROGRESSO_CONVERSA.get(time_memorizado, [])
+    if contexto == "base":
+        chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
 
-            if chave_conversa in sequencia:
-                indice_pergunta = sequencia.index(chave_conversa)
-                user_memory[f"{session_id}_indice"] = indice_pergunta
+        if chave_conversa and chave_conversa in BANCO_CONVERSAS:
+            if time_memorizado and chave_conversa.startswith(time_memorizado):
+                sequencia = PROGRESSO_CONVERSA.get(time_memorizado, [])
 
-        resposta_obj = BANCO_CONVERSAS[chave_conversa]
+                if chave_conversa in sequencia:
+                    indice_pergunta = sequencia.index(chave_conversa)
+                    user_memory[f"{session_id}_indice"] = indice_pergunta
 
-        if isinstance(resposta_obj, dict):
-            resposta = resposta_obj.get("resposta", "")
-            sugestao = resposta_obj.get("sugestao", "")
+            resposta_obj = BANCO_CONVERSAS[chave_conversa]
 
-            if sugestao:
-                resposta += f"\n\n👉 {sugestao}"
+            if isinstance(resposta_obj, dict):
+                resposta = resposta_obj.get("resposta", "")
+                sugestao = resposta_obj.get("sugestao", "")
 
-            return resposta, "base"
+                if sugestao:
+                    resposta += f"\n\n👉 {sugestao}"
 
-        return resposta_obj, "base"
+                return resposta, "base"
 
-    # O usuário citou o NOME de um time, mas sem um tópico específico:
-    # iniciamos a jornada pela história desse time (resposta da base).
-    # Jogadores/apelidos (ex.: "lebron james") não entram aqui e caem na LLM.
-    time_citado = time_citado_pelo_nome(mensagem)
+            return resposta_obj, "base"
 
-    if time_citado:
-        chave_inicial = f"{time_citado}_historia"
+        # Citou nome de time mas sem tópico → inicia jornada pela história
+        time_citado = time_citado_pelo_nome(mensagem)
 
-        if chave_inicial in BANCO_CONVERSAS:
-            user_memory[f"{session_id}_indice"] = 0
-            return processar_resposta_com_sugestao(chave_inicial), "base"
+        if time_citado:
+            chave_inicial = f"{time_citado}_historia"
 
+            if chave_inicial in BANCO_CONVERSAS:
+                user_memory[f"{session_id}_indice"] = 0
+                return processar_resposta_com_sugestao(chave_inicial), "base"
+
+    # contexto == "llm" ou banco não encontrou resposta → fallback LLM
     if time_memorizado:
         mensagem_padrao = (
             f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: "
             f"história, jogadores, títulos, estádio ou rivalidades!"
         )
-        return responder_com_fallback(mensagem, mensagem_padrao, historico)
+    else:
+        mensagem_padrao = (
+            "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
+            "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
+        )
 
-    mensagem_padrao = (
-        "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
-        "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
-    )
     return responder_com_fallback(mensagem, mensagem_padrao, historico)
 
 
@@ -411,8 +430,6 @@ def chat():
     else:
         bot_response, fonte = obter_respostas(mensagem_em_portugues, session_id)
 
-    # Guarda o histórico (em PT) para dar contexto à LLM em follow-ups, e a
-    # última fonte para a regra de stickiness. Mantém só os últimos turnos.
     historico = user_memory.get(f"{session_id}_hist", [])
     historico.append({"role": "user", "content": mensagem_em_portugues})
     historico.append({"role": "assistant", "content": bot_response})
