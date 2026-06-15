@@ -4,9 +4,9 @@
     "celtics": ["celtics_historia", "celtics_jogadores", "celtics_titulos", "celtics_estadio", "celtics_conferenciaatualmente", "celtics_tecnico", "celtics_rivalidade", "celtics_presente", "celtics_futuro"]
   },
   "SAUDACOES": {
-    "oi": "E aí! Tudo bem com você? Quer conhecer sobre o Lakers ou Celtics?",
-    "opa": "Opa! Que bom te ver por aqui. Qual time você quer explorar: Lakers ou Celtics?",
-    "ola": "Faaala! Que legal você estar aqui. Qual time você quer explorar: Lakers ou Celtics?",
+    "oi": "E aí! Tudo certo? Quer conhecer mais sobre Lakers ou Celtics?",
+    "opa": "Opa! Seja bem-vindo. Qual time você gostaria de explorar hoje, Lakers ou Celtics?",
+    "ola": "Olá! Seja bem-vindo. Qual time você quer explorar: Lakers ou Celtics?",
     "bom dia": "Bom dia campeão! Que tal conversarmos sobre os maiores times da NBA?",
     "boa tarde": "Boa tarde! Bora bater um papo sobre basquete?",
     "boa noite": "Boa noite! Já escolheu um time para aprender mais?",
