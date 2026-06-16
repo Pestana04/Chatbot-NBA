@@ -6,6 +6,7 @@ import string
 import json
 import os
 import re
+import random
 
 from tradutor_local import (
     traduzir_para_portugues,
@@ -260,6 +261,19 @@ def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
     return mensagem_padrao, "padrao"
 
 
+# frases de gancho que puxam a conversa de volta pro basquete (após resposta da IA)
+GANCHOS_LLM = [
+    "Quer saber algo mais sobre basquete? 🏀 Me pergunta sobre algum time (Lakers, Celtics) ou jogador!",
+    "E aí, quer saber mais alguma coisa sobre basquete? Posso falar de times, jogadores e regras! 🏀",
+    "Se quiser, me manda uma pergunta sobre a NBA que eu te conto tudo! 🏀",
+]
+
+
+# cola um gancho aleatório no fim da resposta da IA
+def adicionar_gancho_llm(resposta):
+    return f"{resposta}\n\n{random.choice(GANCHOS_LLM)}"
+
+
 # decide o caminho da resposta: banco de dados ("base") ou IA ("llm")
 def identificar_contexto(mensagem, time_memorizado):
     tokens = _tokens_simples(mensagem)
@@ -453,6 +467,10 @@ def chat():
     historico.append({"role": "assistant", "content": bot_response})
     user_memory[f"{session_id}_hist"] = historico[-6:]
     user_memory[f"{session_id}_ultima_fonte"] = fonte
+
+    # se veio da IA, adiciona um gancho pra puxar a conversa de volta pro basquete
+    if fonte == "llm":
+        bot_response = adicionar_gancho_llm(bot_response)
 
     resposta_final = traduzir_do_portugues(bot_response, codigo_idioma)
 
