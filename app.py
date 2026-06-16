@@ -107,6 +107,13 @@ PALAVRAS_ACOMPANHAMENTO = {
     "bom"
 }
 
+# tópicos que existem no banco de conversas (história, títulos, etc.)
+TOPICOS_BANCO = {
+    "historia", "história", "jogadores", "jogador", "titulos", "títulos",
+    "estadio", "estádio", "arena", "conferencia", "conferência", "tecnico",
+    "técnico", "rivalidade", "rival", "presente", "futuro"
+}
+
 
 # detecta se a mensagem é uma confirmação ("sim", "quero"...)
 def eh_resposta_afirmativa(texto):
@@ -253,6 +260,35 @@ def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
     return mensagem_padrao, "padrao"
 
 
+# decide o caminho da resposta: banco de dados ("base") ou IA ("llm")
+def identificar_contexto(mensagem, time_memorizado):
+    tokens = _tokens_simples(mensagem)
+
+    # confirmação pura ("sim", "quero", "bora") segue o banco
+    tem_afirmativa = any(t in PALAVRAS_AFIRMATIVAS for t in tokens)
+    ignoraveis = PALAVRAS_AFIRMATIVAS | PALAVRAS_ACOMPANHAMENTO | _STOPWORDS_PT
+    restante = [t for t in tokens if t not in ignoraveis]
+
+    if tem_afirmativa and not restante:
+        return "base"
+
+    # citou um tópico do banco (história, títulos...) → banco
+    if any(t in TOPICOS_BANCO for t in tokens):
+        return "base"
+
+    # citou o nome de um time → banco
+    if time_citado_pelo_nome(mensagem):
+        return "base"
+
+    # citou palavra-chave de algum time → banco
+    todas_keywords = PALAVRAS_CHAVE_LAKERS | PALAVRAS_CHAVE_CELTICS
+    if any(t in todas_keywords for t in tokens):
+        return "base"
+
+    # nenhum sinal de que o banco cobre → IA
+    return "llm"
+
+
 # cérebro do bot: decide a resposta (base de conhecimento -> IA -> padrão)
 def obter_respostas(mensagem, session_id):
     for saudacao, resposta in SAUDACOES.items():
@@ -320,50 +356,55 @@ def obter_respostas(mensagem, session_id):
         if resposta_llm:
             return resposta_llm, "llm"
 
-    chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
+    # decide se tenta o banco de dados ou vai direto pra IA
+    contexto = identificar_contexto(mensagem, time_memorizado)
 
-    if chave_conversa and chave_conversa in BANCO_CONVERSAS:
-        if time_memorizado and chave_conversa.startswith(time_memorizado):
-            sequencia = PROGRESSO_CONVERSA.get(time_memorizado, [])
+    if contexto == "base":
+        chave_conversa = gerar_chave_conversa(mensagem, time_memorizado)
 
-            if chave_conversa in sequencia:
-                indice_pergunta = sequencia.index(chave_conversa)
-                user_memory[f"{session_id}_indice"] = indice_pergunta
+        if chave_conversa and chave_conversa in BANCO_CONVERSAS:
+            if time_memorizado and chave_conversa.startswith(time_memorizado):
+                sequencia = PROGRESSO_CONVERSA.get(time_memorizado, [])
 
-        resposta_obj = BANCO_CONVERSAS[chave_conversa]
+                if chave_conversa in sequencia:
+                    indice_pergunta = sequencia.index(chave_conversa)
+                    user_memory[f"{session_id}_indice"] = indice_pergunta
 
-        if isinstance(resposta_obj, dict):
-            resposta = resposta_obj.get("resposta", "")
-            sugestao = resposta_obj.get("sugestao", "")
+            resposta_obj = BANCO_CONVERSAS[chave_conversa]
 
-            if sugestao:
-                resposta += f"\n\n👉 {sugestao}"
+            if isinstance(resposta_obj, dict):
+                resposta = resposta_obj.get("resposta", "")
+                sugestao = resposta_obj.get("sugestao", "")
 
-            return resposta, "base"
+                if sugestao:
+                    resposta += f"\n\n👉 {sugestao}"
 
-        return resposta_obj, "base"
+                return resposta, "base"
 
-    # citou só o nome do time (sem tópico): começa a jornada pela história
-    time_citado = time_citado_pelo_nome(mensagem)
+            return resposta_obj, "base"
 
-    if time_citado:
-        chave_inicial = f"{time_citado}_historia"
+        # citou só o nome do time (sem tópico): começa a jornada pela história
+        time_citado = time_citado_pelo_nome(mensagem)
 
-        if chave_inicial in BANCO_CONVERSAS:
-            user_memory[f"{session_id}_indice"] = 0
-            return processar_resposta_com_sugestao(chave_inicial), "base"
+        if time_citado:
+            chave_inicial = f"{time_citado}_historia"
 
+            if chave_inicial in BANCO_CONVERSAS:
+                user_memory[f"{session_id}_indice"] = 0
+                return processar_resposta_com_sugestao(chave_inicial), "base"
+
+    # contexto "llm" ou banco não encontrou resposta → fallback na IA
     if time_memorizado:
         mensagem_padrao = (
             f"Ótima pergunta sobre o {time_memorizado.upper()}! Me manda uma pergunta mais específica tipo: "
             f"história, jogadores, títulos, estádio ou rivalidades!"
         )
-        return responder_com_fallback(mensagem, mensagem_padrao, historico)
+    else:
+        mensagem_padrao = (
+            "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
+            "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
+        )
 
-    mensagem_padrao = (
-        "Hmmm, não entendi bem essa. Tenta escolher um time: Lakers ou Celtics? "
-        "Depois pergunta sobre história, jogadores, títulos, estádio e mais!"
-    )
     return responder_com_fallback(mensagem, mensagem_padrao, historico)
 
 
