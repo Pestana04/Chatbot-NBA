@@ -3,15 +3,13 @@ import argostranslate.package
 import argostranslate.translate
 from langdetect import detect_langs, DetectorFactory
 
-# Deixa a detecção de idioma determinística (langdetect é aleatório por padrão).
+# deixa a detecção de idioma sempre igual (langdetect é aleatório por padrão)
 DetectorFactory.seed = 0
 
-# Idiomas que o bot realmente traduz.
+# idiomas que o bot traduz
 IDIOMAS_SUPORTADOS = {"en", "es", "it", "fr", "de", "pt"}
 
-# Palavras bem distintas do português (não compartilhadas com espanhol/italiano):
-# se alguma aparecer, tratamos a frase como PT mesmo sendo curta, pois é aí que
-# o langdetect mais erra.
+# palavras bem típicas do português, pra acertar mesmo em frases curtas
 MARCADORES_PT = {
     "você", "voce", "vc", "quero", "quer", "queria", "fala", "fale", "falar",
     "quem", "qual", "quais", "quando", "quanto", "quantos", "onde", "não", "nao",
@@ -33,6 +31,7 @@ PARES_TRADUCAO = [
 ]
 
 
+# baixa e instala um par de tradução (ex.: en -> pt)
 def instalar_pacote(origem, destino):
     try:
         pacotes_disponiveis = argostranslate.package.get_available_packages()
@@ -53,6 +52,7 @@ def instalar_pacote(origem, destino):
         print(f"Erro ao instalar {origem}->{destino}: {erro}")
 
 
+# instala todos os pares de idiomas usados pelo bot
 def instalar_idiomas():
     print("Verificando modelos de tradução...")
 
@@ -62,6 +62,7 @@ def instalar_idiomas():
     print("Modelos de tradução verificados.")
 
 
+# descobre o código do idioma do texto (en, es, pt...)
 def detectar_codigo_idioma(texto):
     texto_lower = texto.lower().strip()
 
@@ -88,20 +89,17 @@ def detectar_codigo_idioma(texto):
     if texto_lower in palavras_curtas:
         return palavras_curtas[texto_lower]
 
-    # Sinais fortes de português: acentuação típica ou palavras marcantes.
+    # acento ou palavra marcante = português
     palavras = re.findall(r"[a-zà-ÿ]+", texto_lower)
 
     if re.search(r"[ãõçáàâéêíóôúü]", texto_lower) or (set(palavras) & MARCADORES_PT):
         return "pt"
 
-    # Mensagens muito curtas (1-2 palavras, ex.: "claro", "lebron james")
-    # confundem o langdetect; assumimos português (idioma principal do bot).
-    # Saudações estrangeiras conhecidas já foram tratadas acima.
+    # frase muito curta confunde o langdetect, então assume português
     if len(palavras) <= 2:
         return "pt"
 
-    # Sem sinal claro de PT: confia no langdetect só com confiança alta,
-    # senão assume português (idioma principal do bot).
+    # só confia no langdetect com confiança alta; senão, português
     try:
         candidatos = detect_langs(texto)
 
@@ -116,6 +114,7 @@ def detectar_codigo_idioma(texto):
     return "pt"
 
 
+# traduz o código do idioma pro nome em português (en -> "Inglês")
 def identificar_idioma(texto):
     codigo = detectar_codigo_idioma(texto)
 
@@ -131,6 +130,7 @@ def identificar_idioma(texto):
     return idiomas.get(codigo, codigo)
 
 
+# troca gírias do bot por português normal antes de traduzir
 def corrigir_girias_antes_de_traduzir(texto):
     substituicoes = {
         "Faaala!": "Olá!",
@@ -154,6 +154,7 @@ def corrigir_girias_antes_de_traduzir(texto):
     return texto
 
 
+# ajusta pequenos erros da tradução automática por idioma
 def corrigir_resposta_traduzida(texto, codigo_destino):
     if codigo_destino == "en":
         substituicoes = {
@@ -197,6 +198,7 @@ def corrigir_resposta_traduzida(texto, codigo_destino):
     return texto
 
 
+# traduz um texto de um idioma para outro (motor Argos Translate)
 def traduzir(texto, origem, destino):
     try:
         if origem == destino:
@@ -225,11 +227,13 @@ def traduzir(texto, origem, destino):
         return texto
 
 
+# traduz a mensagem do usuário para português (entrada do bot)
 def traduzir_para_portugues(texto):
     codigo = detectar_codigo_idioma(texto)
     return traduzir(texto, codigo, "pt")
 
 
+# traduz a resposta do bot de volta para o idioma do usuário (saída)
 def traduzir_do_portugues(texto, codigo_destino):
     if codigo_destino == "pt":
         return texto

@@ -22,6 +22,7 @@ user_memory = {}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# carrega a base de conhecimento (dados.json)
 with open(os.path.join(BASE_DIR, "dados.json"), "r", encoding="utf-8") as f:
     _dados = json.load(f)
 
@@ -33,6 +34,7 @@ PALAVRAS_CHAVE_CELTICS = set(_dados["PALAVRAS_CHAVE_CELTICS"])
 PALAVROES_BLOQUEADOS = set(_dados["PALAVROES_BLOQUEADOS"])
 
 
+# baixa os pacotes do NLTK (tokenizer e stopwords) se faltarem
 try:
     nltk.data.find("tokenizers/punkt_tab")
 except Exception:
@@ -51,6 +53,7 @@ except Exception:
     _STOPWORDS_PT = set()
 
 
+# NLP: tokeniza o texto e remove pontuação e stopwords
 def processar_texto(texto):
     tokens = word_tokenize(texto.lower(), language="portuguese")
     stop_words = set(stopwords.words("portuguese"))
@@ -63,6 +66,7 @@ def processar_texto(texto):
     return palavras_limpas
 
 
+# filtro de palavrão: bloqueia mensagens ofensivas
 def contem_palavrao(texto):
     palavras = word_tokenize(texto.lower(), language="portuguese")
 
@@ -75,20 +79,19 @@ def contem_palavrao(texto):
     return False
 
 
+# quebra o texto em palavras minúsculas e sem pontuação
 def _tokens_simples(texto):
-    """Quebra o texto em palavras já sem pontuação, em minúsculas."""
     tokens = [t.strip(string.punctuation) for t in texto.lower().split()]
     return [t for t in tokens if t]
 
 
+# detecta saudação na mensagem (como palavra inteira)
 def eh_saudacao(mensagem, saudacao):
-    """Casa a saudação como palavra inteira (evita 'oi' dentro de 'foi')."""
     padrao = r"\b" + re.escape(saudacao) + r"\b"
     return re.search(padrao, mensagem.lower()) is not None
 
 
-# Palavras que confirmam ("sim") e palavras de acompanhamento que não mudam o
-# sentido de uma confirmação (ex.: o "gostaria" de "sim, gostaria").
+# palavras de "sim" e palavras de enchimento que acompanham um "sim"
 PALAVRAS_AFIRMATIVAS = {
     "sim", "ss", "claro", "quer", "quero", "queria", "gostaria", "gostei",
     "boa", "beleza", "blz", "vamo", "vamos", "tá", "ta", "ok", "okay", "okh",
@@ -105,24 +108,24 @@ PALAVRAS_ACOMPANHAMENTO = {
 }
 
 
+# detecta se a mensagem é uma confirmação ("sim", "quero"...)
 def eh_resposta_afirmativa(texto):
     tokens = _tokens_simples(texto)
 
     if not tokens:
         return False
 
-    # Precisa ter ao menos uma palavra de confirmação ("sim", "quero"...).
     if not any(t in PALAVRAS_AFIRMATIVAS for t in tokens):
         return False
 
-    # É confirmação só se o resto for "enchimento" (acompanhamento/stopwords).
-    # Se sobrar uma palavra de conteúdo (ex.: "warriors"), é um pedido novo.
+    # só é "sim" se o resto for enchimento; se sobrar conteúdo, é pedido novo
     ignoraveis = PALAVRAS_AFIRMATIVAS | PALAVRAS_ACOMPANHAMENTO | _STOPWORDS_PT
     restante = [t for t in tokens if t not in ignoraveis]
 
     return not restante
 
 
+# detecta se a mensagem é uma negação ("não", "nunca"...)
 def eh_resposta_negativa(texto):
     texto_lower = texto.lower().strip()
 
@@ -135,12 +138,12 @@ def eh_resposta_negativa(texto):
     if texto_lower in respostas_negativas or texto_lower in frases_negativas:
         return True
 
-    # Só é negação quando a mensagem é *só* isso (ex.: "não", "não nunca"),
-    # e não quando há um pedido junto (ex.: "nao, quero saber dos warriors").
+    # só é negação se a mensagem for só isso (não quando vem um pedido junto)
     tokens = _tokens_simples(texto_lower)
     return bool(tokens) and all(t in respostas_negativas for t in tokens)
 
 
+# pega a próxima pergunta da jornada guiada do time
 def obter_proxima_pergunta(time, indice_atual):
     if time not in PROGRESSO_CONVERSA:
         return None
@@ -153,6 +156,7 @@ def obter_proxima_pergunta(time, indice_atual):
     return None
 
 
+# monta a resposta da base + a sugestão de próximo tópico
 def processar_resposta_com_sugestao(chave_conversa):
     if chave_conversa in BANCO_CONVERSAS:
         resposta_obj = BANCO_CONVERSAS[chave_conversa]
@@ -171,6 +175,7 @@ def processar_resposta_com_sugestao(chave_conversa):
     return None
 
 
+# identifica o time pela mensagem (apelidos, jogadores, etc.)
 def detectar_time(mensagem):
     mensagem_lower = mensagem.lower()
 
@@ -183,15 +188,14 @@ def detectar_time(mensagem):
     return None
 
 
-# Nomes do próprio time (sem apelidos/jogadores). Usado para decidir quando
-# iniciar a jornada guiada: só começamos o tour quando o usuário cita o TIME,
-# não quando cita um jogador (ex.: "lebron james" deve ir para a LLM).
+# nomes próprios de cada time (sem apelidos/jogadores)
 NOMES_DE_TIME = {
     "lakers": ["lakers", "los angeles", "angeles"],
     "celtics": ["celtics", "boston"],
 }
 
 
+# verifica se o usuário citou o NOME do time (pra iniciar a jornada)
 def time_citado_pelo_nome(mensagem):
     mensagem_lower = mensagem.lower()
 
@@ -202,6 +206,7 @@ def time_citado_pelo_nome(mensagem):
     return None
 
 
+# acha a chave da resposta na base juntando time + tópico (história, títulos...)
 def gerar_chave_conversa(mensagem, time_memorizado):
     palavras = processar_texto(mensagem)
 
@@ -217,8 +222,7 @@ def gerar_chave_conversa(mensagem, time_memorizado):
         "futuro": ["futuro", "próximo", "proximo"],
     }
 
-    # Sem palavra-chave de tópico, NÃO assumimos um tópico padrão: assim a
-    # pergunta não recebe uma resposta da base "na marra" e pode cair na LLM.
+    # sem tópico identificado, não força resposta da base (pode cair na IA)
     tipo_identificado = None
 
     for tipo, palavras_tipo in tipos_pergunta.items():
@@ -239,16 +243,8 @@ def gerar_chave_conversa(mensagem, time_memorizado):
     return None
 
 
+# fallback: chama a IA quando a base não tem resposta
 def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
-    """
-    Acionado quando a base de conhecimento não tem resposta suficiente.
-
-    Tenta a LLM local da Hugging Face como fallback, passando o histórico da
-    conversa para dar contexto. Se a LLM não estiver disponível (ex.:
-    dependências não instaladas) ou falhar, devolve a resposta padrão. A
-    mensagem já chega em português, então a LLM responde em português e a
-    tradução final cuida do idioma do usuário.
-    """
     resposta_llm = gerar_resposta_llm(mensagem, historico)
 
     if resposta_llm:
@@ -257,6 +253,7 @@ def responder_com_fallback(mensagem, mensagem_padrao, historico=None):
     return mensagem_padrao, "padrao"
 
 
+# cérebro do bot: decide a resposta (base de conhecimento -> IA -> padrão)
 def obter_respostas(mensagem, session_id):
     for saudacao, resposta in SAUDACOES.items():
         if eh_saudacao(mensagem, saudacao):
@@ -268,7 +265,7 @@ def obter_respostas(mensagem, session_id):
     time_detectado = detectar_time(mensagem)
 
     if time_detectado:
-        # Só reinicia a jornada se o time mudou; senão mantém o progresso.
+        # se trocou de time, reinicia a jornada; senão mantém o progresso
         if time_detectado != time_memorizado:
             indice_pergunta = -1
             user_memory[f"{session_id}_indice"] = -1
@@ -312,9 +309,7 @@ def obter_respostas(mensagem, session_id):
 
     historico = user_memory.get(f"{session_id}_hist", [])
 
-    # Stickiness: se a última resposta veio da LLM (ex.: estávamos falando de um
-    # jogador) e esta é um follow-up com pronome ("ele", "dele"...) sem citar um
-    # time pelo nome, mantemos o assunto na LLM (com o contexto da conversa).
+    # se a conversa estava na IA e veio um pronome (ele/ela), continua na IA
     pronomes = {"ele", "ela", "dele", "dela", "nele", "nela", "seu", "sua", "seus", "suas"}
     tem_pronome = any(t in pronomes for t in _tokens_simples(mensagem))
     ultima_fonte = user_memory.get(f"{session_id}_ultima_fonte")
@@ -348,9 +343,7 @@ def obter_respostas(mensagem, session_id):
 
         return resposta_obj, "base"
 
-    # O usuário citou o NOME de um time, mas sem um tópico específico:
-    # iniciamos a jornada pela história desse time (resposta da base).
-    # Jogadores/apelidos (ex.: "lebron james") não entram aqui e caem na LLM.
+    # citou só o nome do time (sem tópico): começa a jornada pela história
     time_citado = time_citado_pelo_nome(mensagem)
 
     if time_citado:
@@ -374,11 +367,13 @@ def obter_respostas(mensagem, session_id):
     return responder_com_fallback(mensagem, mensagem_padrao, historico)
 
 
+# rota da página inicial (carrega a interface do chat)
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
 
+# rota principal: recebe a mensagem, traduz, responde e devolve em JSON
 @app.route("/chat", methods=["POST"])
 def chat():
     print("CHAT CHAMADO")
@@ -411,8 +406,7 @@ def chat():
     else:
         bot_response, fonte = obter_respostas(mensagem_em_portugues, session_id)
 
-    # Guarda o histórico (em PT) para dar contexto à LLM em follow-ups, e a
-    # última fonte para a regra de stickiness. Mantém só os últimos turnos.
+    # guarda histórico e última fonte pra dar contexto à IA nos follow-ups
     historico = user_memory.get(f"{session_id}_hist", [])
     historico.append({"role": "user", "content": mensagem_em_portugues})
     historico.append({"role": "assistant", "content": bot_response})
